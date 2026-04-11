@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存盘点 · 管理员 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">⚙️ 管理员面板 · GLU</div>
+    <div class="nav-links">
+        <a href="/admin/index.html">数据总览</a>
+        <a href="/admin/profile.html">个人信息</a>
+        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/evaluate.html">评估核算</a>
+        <a href="/admin/rule.html">积分规则</a>
+        <a href="/admin/inventory-all.html" class="active">库存管理</a>
+        <a href="/admin/notice.html">公告通知</a>
+        <a href="/admin/book-mgmt.html">书籍管理</a>
+        <a href="/admin/category-mgmt.html">分类管理</a>
+    </div>
+    <div class="nav-user">
+            <span class="nav-user-info">
+                👤 <span id="navUserName">管理员</span>
+            </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="inventory-check-page">
+    <h2 class="inventory-title">📦 库存盘点</h2>
+
+    <div class="inventory-tabs">
+        <a href="/admin/inventory-all.html" class="tab-btn">全部库存</a>
+        <a href="/admin/inventory-in.html" class="tab-btn">入库记录</a>
+        <a href="/admin/inventory-out.html" class="tab-btn">出库记录</a>
+        <a href="/admin/inventory-check.html" class="tab-btn active">盘点</a>
+    </div>
+
+    <div class="check-info-card">
+        <h3>🔍 盘点信息</h3>
+        <div class="check-info-row">
+            <div class="check-info-field">
+                <label>盘点单号</label>
+                <input type="text" id="checkNo" value="" readonly>
+            </div>
+            <div class="check-info-field">
+                <label>盘点日期</label>
+                <input type="date" id="checkDate" value="">
+            </div>
+            <div class="check-info-field">
+                <label>盘点人员</label>
+                <input type="text" id="checkOperator" value="" readonly>
+            </div>
+        </div>
+    </div>
+
+    <div class="inventory-actions">
+        <div class="inventory-actions-left">
+            <button class="btn-primary" onclick="loadInventoryCheckData()">开始盘点</button>
+            <button class="btn-secondary" onclick="alert('盘点结果已保存')">保存结果</button>
+            <button class="btn-secondary" onclick="alert('导出功能开发中')">导出报表</button>
+        </div>
+        <div class="inventory-actions-right">
+            <span class="diff-count">差异总数: <span class="diff-number">0</span></span>
+        </div>
+    </div>
+
+    <table class="data-table inventory-table">
+        <thead>
+        <tr>
+            <th>教材名称</th>
+            <th>ISBN</th>
+            <th>系统库存</th>
+            <th>实际盘点</th>
+            <th>差异</th>
+            <th>备注</th>
+        </tr>
+        </thead>
+        <tbody id="inventoryCheckTableBody">
+        </tbody>
+    </table>
+
+    <div class="check-summary-card">
+        <h3>📊 盘点汇总</h3>
+        <div class="summary-stats">
+            <div class="summary-item">
+                <div class="summary-label">总品种数</div>
+                <div class="summary-value" id="totalSpecies">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">总库存量</div>
+                <div class="summary-value" id="totalStock">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">盘盈数量</div>
+                <div class="summary-value success" id="profitCount">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">盘亏数量</div>
+                <div class="summary-value danger" id="lossCount">0</div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

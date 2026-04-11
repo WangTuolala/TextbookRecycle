@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>积分规则 · 管理员 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">⚙️ 管理员面板 · GLU</div>
+    <div class="nav-links">
+        <a href="/admin/index.html">数据总览</a>
+        <a href="/admin/profile.html">个人信息</a>
+        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/evaluate.html">评估核算</a>
+        <a href="/admin/rule.html" class="active">积分规则</a>
+        <a href="/admin/inventory-all.html">库存管理</a>
+        <a href="/admin/notice.html">公告通知</a>
+        <a href="/admin/book-mgmt.html">书籍管理</a>
+        <a href="/admin/category-mgmt.html">分类管理</a>
+    </div>
+    <div class="nav-user">
+        <span class="nav-user-info">
+            👤 张老师
+        </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="rule-page">
+    <div class="rule-header">
+        <h2 class="rule-title">📏 积分规则配置</h2>
+        <button class="btn-primary" id="editRuleBtn">修改规则</button>
+    </div>
+
+    <div class="rule-card">
+        <h3 class="rule-subtitle">当前积分标准</h3>
+
+        <table class="rule-table">
+            <thead>
+            <tr>
+                <th>品相等级</th>
+                <th>积分值</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>全新</td>
+                <td id="pointsNew">-</td>
+            </tr>
+            <tr>
+                <td>良好</td>
+                <td id="pointsGood">-</td>
+            </tr>
+            <tr>
+                <td>一般</td>
+                <td id="pointsNormal">-</td>
+            </tr>
+            <tr>
+                <td>陈旧</td>
+                <td id="pointsOld">-</td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div class="rule-footer">
+            <div class="rule-item">
+                <span class="rule-label">📌 奖品积分上限</span>
+                <span class="rule-value" id="prizeMaxPoints">-</span>
+                <span class="rule-unit">积分</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 同步给后勤按钮 -->
+    <div class="sync-section">
+        <button class="btn-primary btn-sync-logistics" id="syncToLogisticsBtn">🔄 同步规则给后勤</button>
+        <p class="sync-hint">同步后，后勤人员将使用相同的积分规则进行奖品管理</p>
+    </div>
+</main>
+
+<!-- 修改规则弹窗 -->
+<div id="ruleModal" class="modal">
+    <div class="modal-content modal-lg">
+        <span class="close-btn">&times;</span>
+        <h3>修改积分规则</h3>
+
+        <div class="modal-field">
+            <label>全新品相积分</label>
+            <input type="number" id="editPointsNew" value="200" min="0" step="10">
+        </div>
+
+        <div class="modal-field">
+            <label>良好品相积分</label>
+            <input type="number" id="editPointsGood" value="150" min="0" step="10">
+        </div>
+
+        <div class="modal-field">
+            <label>一般品相积分</label>
+            <input type="number" id="editPointsNormal" value="80" min="0" step="10">
+        </div>
+
+        <div class="modal-field">
+            <label>陈旧品相积分</label>
+            <input type="number" id="editPointsOld" value="40" min="0" step="10">
+        </div>
+
+        <div class="modal-field">
+            <label>🎁 奖品积分上限</label>
+            <input type="number" id="editPrizeMaxPoints" value="500" min="0" step="50">
+            <span class="field-hint">后勤新增奖品时，所需积分不能超过此上限</span>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="saveRuleChanges()">保存修改</button>
+            <button class="btn-secondary" onclick="Modal.close('ruleModal')">取消</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

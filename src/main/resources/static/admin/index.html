@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员 · 数据统计 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<nav>
+    <div class="nav-brand">⚙️ 管理员面板 · GLU</div>
+    <div class="nav-links">
+        <a href="/admin/index.html" class="active">数据总览</a>
+        <a href="/admin/profile.html">个人信息</a>
+        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/evaluate.html">评估核算</a>
+        <a href="/admin/rule.html">积分规则</a>
+        <a href="/admin/inventory-all.html">库存管理</a>
+        <a href="/admin/notice.html">公告通知</a>
+        <a href="/admin/book-mgmt.html">书籍管理</a>
+        <a href="/admin/category-mgmt.html">分类管理</a>
+    </div>
+    <div class="nav-user">
+        <span class="nav-user-info" id="adminUserName">
+            👤 管理员
+        </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="admin-main">
+    <h2 class="page-title">📊 回收共享数据看板</h2>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            累计回收教材
+            <span id="totalRecycled">0</span>
+        </div>
+        <div class="stat-card">
+            累计兑换
+            <span id="totalExchanged">0</span>
+        </div>
+        <div class="stat-card">
+            待审核预约
+            <span id="pendingAppointments">0</span>
+        </div>
+    </div>
+
+    <div class="charts-container">
+        <div class="chart-card">
+            <h3>📊 教材回收量统计</h3>
+            <div class="chart-wrapper">
+                <canvas id="recycleChart"></canvas>
+            </div>
+            <div class="chart-note">近30天回收量趋势</div>
+        </div>
+
+        <div class="chart-card">
+            <h3>📈 教材兑换率统计</h3>
+            <div class="chart-wrapper">
+                <canvas id="exchangeChart"></canvas>
+            </div>
+            <div class="chart-note">各类教材兑换占比</div>
+        </div>
+
+        <div class="chart-card">
+            <h3>📉 学科分类统计</h3>
+            <div class="chart-wrapper">
+                <canvas id="subjectChart"></canvas>
+            </div>
+            <div class="chart-note">各学科教材流通情况</div>
+        </div>
+    </div>
+
+    <div class="warning-section">
+        <h3 class="warning-title">⚠️ 库存预警</h3>
+        <div class="warning-grid" id="lowStockWarningGrid">
+            <div class="warning-card warning-zero">
+                <div class="warning-header">
+                    <span class="warning-icon">⭕</span>
+                    <span class="warning-level">即将缺货</span>
+                </div>
+                <div class="warning-content" id="lowStockList">
+                    <div class="warning-item">
+                        <span class="warning-book">暂无数据</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="warning-card warning-expiring">
+                <div class="warning-header">
+                    <span class="warning-icon">📅</span>
+                    <span class="warning-level">待审核预约</span>
+                </div>
+                <div class="warning-content" id="pendingAppointmentsList">
+                    <div class="warning-item">
+                        <span class="warning-book">暂无待审核预约</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

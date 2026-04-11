@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回收审核 · 管理员 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">⚙️ 管理员面板 · GLU</div>
+    <div class="nav-links">
+        <a href="/admin/index.html">数据总览</a>
+        <a href="/admin/profile.html">个人信息</a>
+        <a href="/admin/audit.html" class="active">回收审核</a>
+        <a href="/admin/evaluate.html">评估核算</a>
+        <a href="/admin/rule.html">积分规则</a>
+        <a href="/admin/inventory-all.html">库存管理</a>
+        <a href="/admin/notice.html">公告通知</a>
+        <a href="/admin/book-mgmt.html">书籍管理</a>
+        <a href="/admin/category-mgmt.html">分类管理</a>
+    </div>
+    <div class="nav-user">
+        <span class="nav-user-info">
+            👤 <span id="navUserName">管理员</span>
+        </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="audit-page">
+    <div class="pickup-list">
+        <div class="pickup-header">
+            <h3 class="section-title">📋 今日待领取清单（教材兑换）</h3>
+            <div class="pickup-filters">
+                <div class="filter-group">
+                    <span class="filter-label">状态筛选：</span>
+                    <select id="statusFilter" class="filter-select" onchange="filterPickupList()">
+                        <option value="all">全部</option>
+                        <option value="pending">待领取</option>
+                        <option value="completed">已领取</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">搜索：</span>
+                    <input type="text" id="searchPickup" placeholder="搜索学生姓名或教材名称" class="search-input" oninput="searchPickupList()" onkeyup="searchPickupList()">
+                </div>
+                <button class="btn-secondary" onclick="resetPickupFilters()">重置筛选</button>
+            </div>
+        </div>
+        <div class="records-table-wrapper">
+            <table class="data-table" id="pickupTable">
+                <thead>
+                <tr>
+                    <th>学生（学号）</th>
+                    <th>图片</th>
+                    <th>名称</th>
+                    <th>积分</th>
+                    <th>时间</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="pickupBody">
+                </tbody>
+            </table>
+        </div>
+        <div class="pickup-stats">
+            <span class="stat-badge">总计: <strong id="pickupTotal">0</strong> 条</span>
+            <span class="stat-badge pending-badge">待领取: <strong id="pickupPending">0</strong></span>
+            <span class="stat-badge completed-badge">已领取: <strong id="pickupCompleted">0</strong></span>
+        </div>
+    </div>
+</main>
+
+<!-- 学生信息弹窗 -->
+<div id="studentInfoModal" class="modal">
+    <div class="modal-content modal-md">
+        <span class="close-btn" onclick="Modal.close('studentInfoModal')">&times;</span>
+        <h3>👤 学生详细信息</h3>
+        <div class="student-info-content" id="studentInfoContent">
+            <!-- 动态填充学生信息 -->
+        </div>
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="Modal.close('studentInfoModal')">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

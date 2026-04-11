@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>积分兑换 · 学生 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/student.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">📘 GLU · 学生端</div>
+    <div class="nav-links">
+        <a href="/student/notice.html">公告通知</a>
+        <a href="/student/index.html">首页集市</a>
+        <a href="/student/profile.html">个人信息</a>
+        <a href="/student/recycle.html">教材回收</a>
+        <a href="/student/points.html">积分收支</a>
+        <a href="/student/exchange.html" class="active">积分兑换</a>
+    </div>
+    <div class="nav-user">
+            <span class="nav-user-info">
+                👤 <span id="navUserName">同学</span>
+                <span class="points"><span id="navUserPoints">0</span>积分</span>
+            </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="exchange-main-full">
+    <!-- 奖品网格 - 铺满屏幕 -->
+    <div class="prize-grid-full" id="prizeGrid">
+        <!-- 奖品由JS动态加载 -->
+    </div>
+</main>
+
+<!-- 奖品领取地点和注意事项弹窗 -->
+<div id="logisticsLocationNoticeModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>🎁 奖品领取地点及注意事项</h2>
+        <div class="info-card">
+            <h3>领取地点</h3>
+            <p class="location-text">后勤服务中心 3号窗口</p>
+        </div>
+        <div class="info-card">
+            <h3>注意事项</h3>
+            <div class="notice-text">
+                <p>• 需携带学生证</p>
+                <p>• 代领需提供委托书及双方证件</p>
+                <p>• 领取时间：工作日 9:00-17:00</p>
+            </div>
+        </div>
+        <button class="btn-primary" onclick="Modal.close('logisticsLocationNoticeModal')">我知道了</button>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/student.js"></script>
+</body>
+</html>

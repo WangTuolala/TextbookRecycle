@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教材回收 · 学生 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/student.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">📘 GLU · 学生端</div>
+    <div class="nav-links">
+        <a href="/student/notice.html">公告通知</a>
+        <a href="/student/index.html">首页集市</a>
+        <a href="/student/profile.html">个人信息</a>
+        <a href="/student/recycle.html" class="active">教材回收</a>
+        <a href="/student/points.html">积分收支</a>
+        <a href="/student/exchange.html">积分兑换</a>
+    </div>
+    <div class="nav-user">
+        <span class="nav-user-info">
+            👤 <span id="navUserName">同学</span>
+            <span class="points"><span id="navUserPoints">0</span>积分</span>
+        </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="recycle-records-main">
+    <!-- 标签页切换 -->
+    <div class="records-tabs">
+        <button class="tab-btn active" data-tab="appointment">📋 预约记录</button>
+        <button class="tab-btn" data-tab="exchange">🔄 兑换记录</button>
+    </div>
+
+    <!-- 预约记录表格 -->
+    <div id="appointmentTab" class="records-tab active">
+        <div class="records-header">
+            <h3>📋 我的预约记录</h3>
+            <div class="records-stats">
+                <span class="stat-badge">总计: <strong id="appointmentTotal">0</strong> 条</span>
+                <span class="stat-badge pending-badge">待审核: <strong id="appointmentPending">0</strong></span>
+                <span class="stat-badge completed-badge">已完成: <strong id="appointmentCompleted">0</strong></span>
+            </div>
+        </div>
+        <div class="records-table-wrapper">
+            <table class="data-table appointment-table">
+                <thead>
+                <tr>
+                    <th>图片</th>
+                    <th>名称</th>
+                    <th>品相</th>
+                    <th>数量</th>
+                    <th>提交时间</th>
+                    <th>状态</th>
+                    <th>所需积分</th>
+                </tr>
+                </thead>
+                <tbody id="appointmentTbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 兑换记录表格 -->
+    <div id="exchangeTab" class="records-tab" style="display: none;">
+        <div class="records-header">
+            <h3>🔄 我的兑换记录</h3>
+            <div class="records-stats">
+                <span class="stat-badge">总计: <strong id="exchangeTotal">0</strong> 条</span>
+                <span class="stat-badge pending-badge">待领取: <strong id="exchangePending">0</strong></span>
+                <span class="stat-badge completed-badge">已领取: <strong id="exchangeCompleted">0</strong></span>
+            </div>
+        </div>
+        <div class="records-table-wrapper">
+            <table class="data-table exchange-table">
+                <thead>
+                <tr>
+                    <th>图片</th>
+                    <th>名称</th>
+                    <th>类型</th>
+                    <th>数量</th>
+                    <th>兑换时间</th>
+                    <th>状态</th>
+                    <th>所需积分</th>
+                </tr>
+                </thead>
+                <tbody id="exchangeTbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/student.js"></script>
+</body>
+</html>

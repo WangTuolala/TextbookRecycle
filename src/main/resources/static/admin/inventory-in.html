@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>入库记录 · 管理员 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">⚙️ 管理员面板 · GLU</div>
+    <div class="nav-links">
+        <a href="/admin/index.html">数据总览</a>
+        <a href="/admin/profile.html">个人信息</a>
+        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/evaluate.html">评估核算</a>
+        <a href="/admin/rule.html">积分规则</a>
+        <a href="/admin/inventory-all.html" class="active">库存管理</a>
+        <a href="/admin/notice.html">公告通知</a>
+        <a href="/admin/book-mgmt.html">书籍管理</a>
+        <a href="/admin/category-mgmt.html">分类管理</a>
+    </div>
+    <div class="nav-user">
+            <span class="nav-user-info">
+                👤 <span id="navUserName">管理员</span>
+            </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="inventory-in-page">
+    <h2 class="inventory-title">📦 入库记录</h2>
+
+    <div class="inventory-tabs">
+        <a href="/admin/inventory-all.html" class="tab-btn">全部库存</a>
+        <a href="/admin/inventory-in.html" class="tab-btn active">入库记录</a>
+        <a href="/admin/inventory-out.html" class="tab-btn">出库记录</a>
+        <a href="/admin/inventory-check.html" class="tab-btn">盘点</a>
+    </div>
+
+    <div class="inventory-actions">
+        <div class="inventory-actions-left">
+            <input type="text" placeholder="搜索教材名称或ISBN">
+            <button class="btn-primary" onclick="location.href='/admin/inventory-all.html'">+ 新增入库</button>
+        </div>
+        <div class="inventory-actions-right">
+            <button class="btn-secondary" onclick="alert('导出功能开发中')">导出</button>
+        </div>
+    </div>
+
+    <table class="data-table inventory-table">
+        <thead>
+        <tr>
+            <th>入库单号</th>
+            <th>教材名称</th>
+            <th>ISBN</th>
+            <th>入库数量</th>
+            <th>入库时间</th>
+            <th>经手人</th>
+            <th>存放位置</th>
+        </tr>
+        </thead>
+        <tbody id="inventoryInTableBody">
+        </tbody>
+    </table>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

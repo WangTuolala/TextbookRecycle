@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>书籍管理 · 管理员 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">⚙️ 管理员面板 · GLU</div>
+    <div class="nav-links">
+        <a href="/admin/index.html">数据总览</a>
+        <a href="/admin/profile.html">个人信息</a>
+        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/evaluate.html">评估核算</a>
+        <a href="/admin/rule.html">积分规则</a>
+        <a href="/admin/inventory-all.html">库存管理</a>
+        <a href="/admin/notice.html">公告通知</a>
+        <a href="/admin/book-mgmt.html" class="active">书籍管理</a>
+        <a href="/admin/category-mgmt.html">分类管理</a>
+    </div>
+    <div class="nav-user">
+        <span class="nav-user-info">
+            👤 张老师
+        </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="book-mgmt-main">
+    <div class="book-mgmt-header">
+        <h2 class="book-mgmt-title">📚 书籍管理</h2>
+        <button class="btn-primary" id="addBookBtn" onclick="openBookModal()">+ 新增书籍</button>
+    </div>
+
+    <!-- 搜索筛选栏 -->
+    <div class="book-mgmt-filters">
+        <div class="filter-group">
+            <span class="filter-label">状态筛选：</span>
+            <select id="bookStatusFilter" class="filter-select">
+                <option value="all">全部</option>
+                <option value="listed">已上架</option>
+                <option value="delisted">已下架</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <span class="filter-label">专业筛选：</span>
+            <select id="bookMajorFilter" class="filter-select">
+                <option value="all">全部专业</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <span class="filter-label">搜索：</span>
+            <input type="text" id="bookSearchInput" placeholder="搜索书籍名称或ISBN" class="search-input">
+        </div>
+        <button class="btn-primary" id="searchBookBtn" onclick="searchBooks()">🔍 搜索</button>
+        <button class="btn-secondary" id="resetBookBtn" onclick="resetBookFilters()">重置筛选</button>
+    </div>
+
+    <div class="book-table-container">
+        <table class="data-table book-table">
+            <thead>
+            <tr>
+                <th>封面</th>
+                <th>名称</th>
+                <th>作者</th>
+                <th>出版社</th>
+                <th>ISBN</th>
+                <th>专业</th>
+                <th>品相</th>
+                <th>积分</th>
+                <th>库存</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="bookTableBody">
+            <!-- 动态生成 -->
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<!-- 新增/编辑书籍弹窗 -->
+<div id="bookModal" class="modal">
+    <div class="modal-content modal-lg">
+        <span class="close-btn" onclick="Modal.close('bookModal')">&times;</span>
+        <h3 id="bookModalTitle">📖 新增书籍</h3>
+        <form id="bookForm" onsubmit="return false;">
+            <input type="hidden" id="bookId">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>书籍名称 <span class="required">*</span></label>
+                    <input type="text" id="bookName" placeholder="请输入书籍名称" required>
+                </div>
+                <div class="form-group">
+                    <label>作者</label>
+                    <input type="text" id="bookAuthor" placeholder="请输入作者">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>出版社</label>
+                    <input type="text" id="bookPublisher" placeholder="请输入出版社">
+                </div>
+                <div class="form-group">
+                    <label>ISBN</label>
+                    <input type="text" id="bookIsbn" placeholder="请输入ISBN">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>专业 <span class="required">*</span></label>
+                    <select id="bookMajor" required>
+                        <option value="">请选择专业</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>品相 <span class="required">*</span></label>
+                    <select id="bookCondition" required>
+                        <option value="">请选择品相</option>
+                        <option value="全新">全新</option>
+                        <option value="良好">良好</option>
+                        <option value="一般">一般</option>
+                        <option value="陈旧">陈旧</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>所需积分 <span class="required">*</span></label>
+                    <input type="number" id="bookPoints" placeholder="请输入所需积分" min="0" step="10" required>
+                </div>
+                <div class="form-group">
+                    <label>库存数量 <span class="required">*</span></label>
+                    <input type="number" id="bookStock" placeholder="请输入库存数量" min="0" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>状态</label>
+                    <select id="bookStatus">
+                        <option value="LISTED">上架</option>
+                        <option value="DELISTED">下架</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>书籍封面</label>
+                    <input type="text" id="bookCoverImage" placeholder="封面图片URL">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="Modal.close('bookModal')">取消</button>
+                <button type="submit" class="btn-primary" onclick="saveBook()">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

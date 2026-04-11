@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公告通知 · 后勤 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/logistics.css">
+</head>
+<body>
+<nav class="logi-nav">
+    <div class="nav-brand">📦 后勤联动 · GL大学</div>
+    <div class="nav-links">
+        <a href="/logistics/index.html">领取管理</a>
+        <a href="/logistics/profile.html">个人信息</a>
+        <a href="/logistics/prize-mgmt.html">奖品管理</a>
+        <a href="/logistics/notice.html" class="active">公告通知</a>
+    </div>
+    <div class="nav-user">
+        <span class="nav-user-info">
+            👤 王师傅
+        </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="logistics-notice-main">
+    <div class="notice-editor-container">
+        <!-- 左侧：奖品领取地点和注意事项编辑 -->
+        <div class="editor-card location-notice-card">
+            <h3>📍 奖品领取地点 & 注意事项</h3>
+            <div class="editor-form">
+                <div class="form-group">
+                    <label>领取地点</label>
+                    <input type="text" id="editLocation" class="form-input" placeholder="请输入领取地点">
+                </div>
+                <div class="form-group">
+                    <label>注意事项</label>
+                    <textarea id="editNotice" rows="5" class="form-textarea" placeholder="请输入注意事项，每行一条"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="btn-primary" onclick="publishLocationNotice()">📢 发布</button>
+                    <button class="btn-secondary" onclick="resetLocationForm()">重置</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：公告管理 -->
+        <div class="editor-card announcement-card">
+            <h3>📢 公告管理</h3>
+            <div class="editor-form">
+                <div class="form-group">
+                    <label>公告标题</label>
+                    <input type="text" id="announcementTitle" class="form-input" placeholder="请输入公告标题">
+                </div>
+                <div class="form-group">
+                    <label>公告内容</label>
+                    <textarea id="announcementContent" rows="5" class="form-textarea" placeholder="请输入公告内容"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="btn-primary" onclick="publishAnnouncement()">📢 发布公告</button>
+                    <button class="btn-secondary" onclick="resetAnnouncementForm()">重置</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史公告列表 -->
+    <div class="history-container">
+        <div class="history-header">
+            <h3>📋 历史公告</h3>
+            <div class="history-filters">
+                <input type="text" id="searchAnnouncement" placeholder="搜索公告标题..." class="search-input">
+                <button class="btn-secondary" onclick="searchAnnouncements()">搜索</button>
+            </div>
+        </div>
+        <div class="history-table-wrapper">
+            <table class="data-table announcement-history-table">
+                <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>标题</th>
+                    <th>内容</th>
+                    <th>发布时间</th>
+                    <th>发布人</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="announcementHistoryBody">
+                <!-- 动态生成 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 历史领取地点/注意事项记录 -->
+    <div class="history-container">
+        <div class="history-header">
+            <h3>📋 历史领取地点 & 注意事项记录</h3>
+            <div class="history-filters">
+                <input type="text" id="searchLocationNotice" placeholder="搜索内容..." class="search-input">
+                <button class="btn-secondary" onclick="searchLocationNotices()">搜索</button>
+            </div>
+        </div>
+        <div class="history-table-wrapper">
+            <table class="data-table location-history-table">
+                <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>领取地点</th>
+                    <th>注意事项</th>
+                    <th>发布时间</th>
+                    <th>发布人</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="locationHistoryBody">
+                <!-- 动态生成 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/logistics.js"></script>
+</body>
+</html>

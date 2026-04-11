@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GL大学 · 二手教材回收与共享管理系统</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            background: linear-gradient(145deg, #f0f4f8 0%, #d9e2ec 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-family: 'Segoe UI', Roboto, system-ui;
+        }
+        .login-container {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(8px);
+            width: 420px;
+            padding: 2.5rem 2rem;
+            border-radius: 32px;
+            box-shadow: 0 20px 35px -8px rgba(0,20,30,0.3);
+            border: 1px solid #ffffff;
+        }
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #0b3b5c;
+            margin-bottom: 0.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            text-align: center;
+        }
+        .logo span {
+            background: #1e5f7a;
+            color: white;
+            font-size: 0.9rem;
+            padding: 4px 12px;
+            border-radius: 40px;
+            letter-spacing: 0.5px;
+        }
+        .sub {
+            color: #2c4c6b;
+            margin-bottom: 2rem;
+            font-weight: 400;
+            font-size: 0.9rem;
+            border-left: 4px solid #4794b3;
+            padding-left: 16px;
+            text-align: left;
+        }
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #174257;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        .input-group input,
+        .role-select {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #d9e7f0;
+            border-radius: 60px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+        .input-group input:focus,
+        .role-select:focus {
+            border-color: #4794b3;
+            box-shadow: 0 0 0 3px rgba(71,148,179,0.2);
+        }
+        .role-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+        }
+        .login-btn {
+            width: 100%;
+            background: #1e6d8f;
+            color: white;
+            border: 2px solid #1e6d8f;
+            padding: 16px;
+            border-radius: 60px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 10px 0 15px;
+        }
+        .login-btn:hover {
+            background: #145872;
+            border-color: #145872;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e1eff8;
+        }
+        .register-link span {
+            color: #6c86a3;
+            font-size: 0.9rem;
+        }
+        .register-link a {
+            color: #1e6d8f;
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+        /* 必填标记 */
+        .required-star {
+            color: #dc3545;
+            margin-left: 4px;
+        }
+        .field-hint {
+            font-size: 0.7rem;
+            color: #999;
+            margin-top: 4px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<div class="login-container">
+    <div class="logo">
+        📚 二手教材回收与共享<br>管理系统 <span>GL大学</span>
+    </div>
+
+    <div class="input-group">
+        <label>👤 账号</label>
+        <input type="text" id="username" placeholder="请输入学号/工号" value="202431100122">
+    </div>
+
+    <div class="input-group">
+        <label>🔒 密码</label>
+        <input type="password" id="password" placeholder="请输入密码" value="123456">
+    </div>
+
+    <div class="input-group">
+        <label>🎭 选择角色</label>
+        <select id="roleSelect" class="role-select">
+            <option value="student">🧑‍🎓 学生</option>
+            <option value="admin">👩‍💼 管理员</option>
+            <option value="logistics">📦 后勤人员</option>
+        </select>
+    </div>
+
+    <button class="login-btn" onclick="handleLogin()">登 录</button>
+
+    <div class="register-link">
+        <span>还没有账号？</span>
+        <a onclick="openRegisterModal()">立即注册</a>
+    </div>
+</div>
+
+<!-- 注册弹窗 - 第一步：账号信息 -->
+<div id="registerModal" class="modal">
+    <div class="modal-content modal-lg">
+        <span class="close-btn" onclick="closeRegisterModal()">&times;</span>
+        <h3>📝 注册新账号</h3>
+
+        <!-- 第一步：账号信息 -->
+        <div id="registerStep1">
+            <div class="modal-field">
+                <label>选择角色 <span class="required-star">*</span></label>
+                <select id="regRole" class="role-select" onchange="onRoleChange()">
+                    <option value="student">🧑‍🎓 学生</option>
+                    <option value="admin">👩‍💼 管理员</option>
+                    <option value="logistics">📦 后勤人员</option>
+                </select>
+            </div>
+            <div class="modal-field">
+                <label>账号 <span class="required-star">*</span></label>
+                <input type="text" id="regUsername" placeholder="请输入账号">
+            </div>
+            <div class="modal-field">
+                <label>密码 <span class="required-star">*</span></label>
+                <input type="password" id="regPassword" placeholder="请输入密码（至少6位）">
+            </div>
+            <div class="modal-field">
+                <label>确认密码 <span class="required-star">*</span></label>
+                <input type="password" id="regConfirmPassword" placeholder="请再次输入密码">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeRegisterModal()">取消</button>
+                <button class="btn-primary" onclick="nextToProfile()">下一步</button>
+            </div>
+        </div>
+
+        <!-- 第二步：个人信息填写 -->
+        <div id="registerStep2" style="display: none;">
+            <div id="studentProfileForm">
+                <div class="modal-field">
+                    <label>学号 <span class="required-star" id="studentIdRequired">*</span></label>
+                    <input type="text" id="studentId" placeholder="请输入学号">
+                </div>
+                <div class="modal-field">
+                    <label>姓名 <span class="required-star" id="studentNameRequired">*</span></label>
+                    <input type="text" id="studentName" placeholder="请输入姓名">
+                </div>
+                <div class="modal-field">
+                    <label>学院</label>
+                    <input type="text" id="studentCollege" placeholder="请输入学院（选填）">
+                </div>
+                <div class="modal-field">
+                    <label>专业</label>
+                    <input type="text" id="studentMajor" placeholder="请输入专业（选填）">
+                </div>
+                <div class="modal-field">
+                    <label>班级</label>
+                    <input type="text" id="studentClass" placeholder="请输入班级（选填）">
+                </div>
+                <div class="modal-field">
+                    <label>入学年份</label>
+                    <input type="text" id="studentYear" placeholder="请输入入学年份（选填）">
+                </div>
+                <div class="modal-field">
+                    <label>联系电话</label>
+                    <input type="tel" id="studentPhone" placeholder="请输入联系电话（选填）">
+                </div>
+            </div>
+            <div id="adminProfileForm" style="display: none;">
+                <div class="modal-field">
+                    <label>工号 <span class="required-star">*</span></label>
+                    <input type="text" id="adminId" placeholder="请输入工号">
+                </div>
+                <div class="modal-field">
+                    <label>姓名 <span class="required-star">*</span></label>
+                    <input type="text" id="adminName" placeholder="请输入姓名">
+                </div>
+                <div class="modal-field">
+                    <label>部门 <span class="required-star">*</span></label>
+                    <input type="text" id="adminDept" placeholder="请输入部门">
+                </div>
+                <div class="modal-field">
+                    <label>岗位 <span class="required-star">*</span></label>
+                    <input type="text" id="adminPosition" placeholder="请输入岗位">
+                </div>
+                <div class="modal-field">
+                    <label>入职年份 <span class="required-star">*</span></label>
+                    <input type="text" id="adminYear" placeholder="请输入入职年份">
+                </div>
+                <div class="modal-field">
+                    <label>联系电话 <span class="required-star">*</span></label>
+                    <input type="tel" id="adminPhone" placeholder="请输入联系电话">
+                </div>
+                <div class="modal-field">
+                    <label>工作地点 <span class="required-star">*</span></label>
+                    <input type="text" id="adminWorkplace" placeholder="请输入工作地点">
+                </div>
+            </div>
+            <div id="logisticsProfileForm" style="display: none;">
+                <div class="modal-field">
+                    <label>工号 <span class="required-star">*</span></label>
+                    <input type="text" id="logisticsId" placeholder="请输入工号">
+                </div>
+                <div class="modal-field">
+                    <label>姓名 <span class="required-star">*</span></label>
+                    <input type="text" id="logisticsName" placeholder="请输入姓名">
+                </div>
+                <div class="modal-field">
+                    <label>部门 <span class="required-star">*</span></label>
+                    <input type="text" id="logisticsDept" placeholder="请输入部门">
+                </div>
+                <div class="modal-field">
+                    <label>岗位 <span class="required-star">*</span></label>
+                    <input type="text" id="logisticsPosition" placeholder="请输入岗位">
+                </div>
+                <div class="modal-field">
+                    <label>入职年份 <span class="required-star">*</span></label>
+                    <input type="text" id="logisticsYear" placeholder="请输入入职年份">
+                </div>
+                <div class="modal-field">
+                    <label>联系电话 <span class="required-star">*</span></label>
+                    <input type="tel" id="logisticsPhone" placeholder="请输入联系电话">
+                </div>
+                <div class="modal-field">
+                    <label>工作地点 <span class="required-star">*</span></label>
+                    <input type="text" id="logisticsWorkplace" placeholder="请输入工作地点">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="prevToAccount()">上一步</button>
+                <button class="btn-primary" onclick="completeRegistration()">完成注册</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/auth.js"></script>
+</body>
+</html>

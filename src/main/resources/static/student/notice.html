@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公告通知 · 学生 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/student.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">📘 GLU · 学生端</div>
+    <div class="nav-links">
+        <a href="/student/notice.html" class="active">公告通知</a>
+        <a href="/student/index.html">首页集市</a>
+        <a href="/student/profile.html">个人信息</a>
+        <a href="/student/recycle.html">教材回收</a>
+        <a href="/student/points.html">积分收支</a>
+        <a href="/student/exchange.html">积分兑换</a>
+    </div>
+    <div class="nav-user">
+            <span class="nav-user-info">
+                👤 <span id="navUserName">同学</span>
+                <span class="points"><span id="navUserPoints">0</span>积分</span>
+            </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="notice-main-full">
+    <div class="notice-container">
+        <!-- 左侧：公告列表 -->
+        <div class="notice-left">
+            <div class="notice-card">
+                <div class="card-header">
+                    <h3>📢 系统公告</h3>
+                    <span class="badge" id="announcementCount">3</span>
+                </div>
+                <div class="announcement-list" id="announcementList">
+                    <!-- 动态生成公告列表 -->
+                </div>
+            </div>
+
+            <div class="notice-card">
+                <div class="card-header">
+                    <h3>📖 领取须知</h3>
+                    <span class="badge" id="noticeCount">2</span>
+                </div>
+                <div class="notice-list" id="noticeList">
+                    <!-- 动态生成通知列表 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：详情展示区域 -->
+        <div class="notice-right">
+            <div class="detail-card" id="detailCard">
+                <div class="detail-header">
+                    <h3 id="detailTitle">公告详情</h3>
+                    <span class="detail-date" id="detailDate"></span>
+                </div>
+                <div class="detail-content" id="detailContent">
+                    <p class="placeholder-text">请从左侧选择一条公告或通知查看详情</p>
+                </div>
+            </div>
+
+            <!-- 书籍缺货通知区域 -->
+            <div class="stock-warning-card">
+                <div class="card-header">
+                    <h3>⚠️ 库存预警通知</h3>
+                    <span class="badge warning-badge" id="stockWarningCount">0</span>
+                </div>
+                <div class="stock-list" id="stockWarningList">
+                    <!-- 动态生成缺货通知列表 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="/js/common.js"></script>
+<script src="/js/student.js"></script>
+</body>
+</html>

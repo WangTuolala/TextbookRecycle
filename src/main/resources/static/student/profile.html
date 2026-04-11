@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人信息 · 学生 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/student.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">📘 GLU · 学生端</div>
+    <div class="nav-links">
+        <a href="/student/notice.html">公告通知</a>
+        <a href="/student/index.html">首页集市</a>
+        <a href="/student/profile.html" class="active">个人信息</a>
+        <a href="/student/recycle.html">教材回收</a>
+        <a href="/student/points.html">积分收支</a>
+        <a href="/student/exchange.html">积分兑换</a>
+    </div>
+    <div class="nav-user">
+            <span class="nav-user-info">
+                👤 <span id="navUserName">同学</span>
+                <span class="points"><span id="navUserPoints">0</span>积分</span>
+            </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="profile-main">
+    <div class="profile-container">
+        <!-- 左侧：个人信息（占3/4） -->
+        <div class="profile-left">
+            <div class="profile-card-left">
+                <h2>学生个人信息</h2>
+                <div class="profile-info-grid">
+                    <div class="info-row">
+                        <span class="info-label">学号：</span>
+                        <span class="info-value" id="profileUsername">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">姓名：</span>
+                        <span class="info-value" id="displayName">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">学院：</span>
+                        <span class="info-value" id="displayCollege">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">专业：</span>
+                        <span class="info-value" id="displayMajor">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">班级：</span>
+                        <span class="info-value" id="displayClass">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">入学年份：</span>
+                        <span class="info-value" id="displayYear">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">联系电话：</span>
+                        <span class="info-value" id="displayPhone">-</span>
+                    </div>
+                </div>
+                <div class="profile-actions">
+                    <button class="btn-primary" data-modal="infoModal">修改个人信息</button>
+                    <button class="btn-secondary" data-modal="pwdModal">修改密码</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：统计卡片（占1/4） -->
+        <div class="profile-right">
+            <div class="stats-card-right">
+                <h3>📊 数据统计</h3>
+                <div class="stats-list">
+                    <div class="stat-item-right">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <span class="stat-label">当前总积分</span>
+                            <span class="stat-number" id="totalPoints">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-item-right">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-info">
+                            <span class="stat-label">回收预约数</span>
+                            <span class="stat-number" id="recycleCount">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-item-right">
+                        <div class="stat-icon">📚</div>
+                        <div class="stat-info">
+                            <span class="stat-label">已兑换教材数</span>
+                            <span class="stat-number" id="exchangeBookCount">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-item-right">
+                        <div class="stat-icon">🎁</div>
+                        <div class="stat-info">
+                            <span class="stat-label">已兑换奖品数</span>
+                            <span class="stat-number" id="exchangePrizeCount">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- 修改信息弹窗 -->
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h3>修改个人信息</h3>
+        <div class="modal-field">
+            <label>姓名</label>
+            <input type="text" id="profileName" placeholder="姓名">
+        </div>
+        <div class="modal-field">
+            <label>学院</label>
+            <input type="text" id="profileCollege" placeholder="学院">
+        </div>
+        <div class="modal-field">
+            <label>专业</label>
+            <input type="text" id="profileMajor" placeholder="专业">
+        </div>
+        <div class="modal-field">
+            <label>班级</label>
+            <input type="text" id="profileClass" placeholder="班级">
+        </div>
+        <div class="modal-field">
+            <label>联系电话</label>
+            <input type="tel" id="profilePhone" placeholder="联系电话">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="saveProfileInfo()">保存</button>
+            <button class="btn-secondary" onclick="Modal.close('infoModal')">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div id="pwdModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h3>修改密码</h3>
+        <div class="modal-field">
+            <input type="password" id="oldPassword" placeholder="当前密码">
+        </div>
+        <div class="modal-field">
+            <input type="password" id="newPassword" placeholder="新密码">
+        </div>
+        <div class="modal-field">
+            <input type="password" id="confirmPassword" placeholder="确认新密码">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="changePassword()">修改</button>
+            <button class="btn-secondary" onclick="Modal.close('pwdModal')">取消</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/student.js"></script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奖品管理 · 后勤 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/logistics.css">
+</head>
+<body>
+<nav class="logi-nav">
+    <div class="nav-brand">📦 后勤联动 · GL大学</div>
+    <div class="nav-links">
+        <a href="/logistics/index.html">领取管理</a>
+        <a href="/logistics/profile.html">个人信息</a>
+        <a href="/logistics/prize-mgmt.html" class="active">奖品管理</a>
+        <a href="/logistics/notice.html">公告通知</a>
+    </div>
+    <div class="nav-user">
+        <span class="nav-user-info">
+            👤 王师傅
+        </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="prize-management">
+    <!-- 奖品发放统计卡片 -->
+    <div class="stats-card">
+        <h3>📊 奖品发放统计</h3>
+        <div class="stats-row">
+            <div class="stat-item">
+                <span class="stat-label">总计发放</span>
+                <span class="stat-value" id="totalCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">待领取</span>
+                <span class="stat-value" id="pendingCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">已领取</span>
+                <span class="stat-value" id="completedCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">最受欢迎</span>
+                <span class="stat-value" id="mostPopular">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 奖品列表标题和按钮区域 -->
+    <div class="prize-header">
+        <h2 class="prize-title">🎁 积分奖品管理</h2>
+        <div class="prize-header-buttons">
+            <button class="btn-secondary" id="viewRuleBtn">📋 查看积分规则</button>
+            <button class="btn-primary add-prize-btn" id="addPrizeBtn">+ 新增奖品</button>
+        </div>
+    </div>
+
+    <!-- 奖品表格 -->
+    <div class="prize-table-container">
+        <table class="data-table prize-table">
+            <thead>
+            <tr>
+                <th>图片</th>
+                <th>名称</th>
+                <th>积分</th>
+                <th>库存</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="prizeTableBody">
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<!-- 新增奖品弹窗 -->
+<div id="addPrizeModal" class="modal">
+    <div class="modal-content modal-md">
+        <span class="close-btn" onclick="Modal.close('addPrizeModal')">&times;</span>
+        <h3>➕ 新增奖品</h3>
+        <form id="addPrizeForm" onsubmit="return false;">
+            <div class="modal-field">
+                <label>奖品名称 <span class="required">*</span></label>
+                <input type="text" id="prizeName" placeholder="请输入奖品名称" required>
+            </div>
+            <div class="modal-field">
+                <label>奖品图片</label>
+                <div class="prize-upload-area">
+                    <div class="prize-upload-preview" id="prizeUploadPreview">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23e1eff8' rx='10'/%3E%3Ctext x='40' y='45' text-anchor='middle' fill='%239ac2d9' font-size='14'%3E图片%3C/text%3E%3C/svg%3E" alt="奖品图片预览">
+                    </div>
+                    <div class="prize-upload-info">
+                        <button type="button" class="btn-upload" onclick="document.getElementById('prizeImage').click()">选择图片</button>
+                        <input type="file" id="prizeImage" accept="image/*" class="file-input" style="display:none;">
+                        <span class="upload-hint">建议尺寸：100*100px</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>所需积分 <span class="required">*</span></label>
+                <input type="number" id="prizePoints" placeholder="请输入所需积分" min="0" step="10" required>
+                <span class="field-hint" id="pointsHint">积分上限: --</span>
+            </div>
+            <div class="modal-field">
+                <label>库存数量 <span class="required">*</span></label>
+                <input type="number" id="prizeStock" placeholder="请输入库存数量" min="0" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="Modal.close('addPrizeModal')">取消</button>
+                <button type="submit" class="btn-primary" onclick="addNewPrize()">确认添加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 积分规则弹窗 -->
+<div id="ruleModal" class="modal">
+    <div class="modal-content modal-md">
+        <span class="close-btn" onclick="Modal.close('ruleModal')">&times;</span>
+        <h3>📏 积分规则</h3>
+        <div class="rule-content">
+            <div class="rule-section">
+                <h4>📚 教材回收积分标准</h4>
+                <table class="rule-table-inline">
+                    <tr><td>全新</td><td id="rulePointsNew">200</td><td>积分</td></tr>
+                    <tr><td>良好</td><td id="rulePointsGood">150</td><td>积分</td></tr>
+                    <tr><td>一般</td><td id="rulePointsNormal">80</td><td>积分</td></tr>
+                    <tr><td>陈旧</td><td id="rulePointsOld">40</td><td>积分</td></tr>
+                </table>
+            </div>
+            <div class="rule-section">
+                <h4>🎁 奖品积分上限</h4>
+                <p>奖品所需积分不能超过 <strong id="rulePrizeMax">500</strong> 积分</p>
+                <p class="rule-note">* 由管理员统一配置，同步更新</p>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="Modal.close('ruleModal')">知道了</button>
+        </div>
+    </div>
+</div>
+
+<!-- 规则更新提示弹窗 -->
+<div id="ruleUpdateModal" class="modal">
+    <div class="modal-content modal-sm">
+        <span class="close-btn" onclick="Modal.close('ruleUpdateModal')">&times;</span>
+        <h3>📢 积分规则已更新</h3>
+        <div class="update-content" id="ruleUpdateContent">
+            <p>管理员已更新积分规则，请查看最新规则。</p>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="viewUpdatedRule()">查看规则</button>
+            <button class="btn-secondary" onclick="Modal.close('ruleUpdateModal')">稍后查看</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/logistics.js"></script>
+</body>
+</html>

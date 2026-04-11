@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生首页 · 教材集市 | GLU共享</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/student.css">
+</head>
+<body>
+<nav>
+    <div class="nav-brand">📘 GLU · 学生端</div>
+    <div class="nav-links">
+        <a href="/student/notice.html">公告通知</a>
+        <a href="/student/index.html" class="active">首页集市</a>
+        <a href="/student/profile.html">个人信息</a>
+        <a href="/student/recycle.html">教材回收</a>
+        <a href="/student/points.html">积分收支</a>
+        <a href="/student/exchange.html">积分兑换</a>
+    </div>
+    <div class="nav-user">
+            <span class="nav-user-info">
+                👤 <span id="navUserName">同学</span>
+                <span class="points"><span id="navUserPoints">0</span>积分</span>
+            </span>
+        <button class="logout-btn" onclick="handleLogout()">退出</button>
+    </div>
+</nav>
+
+<main class="stu-main-full">
+    <section class="book-market-full">
+        <div class="search-bar-full">
+            <input type="text" id="searchInput" placeholder="搜索教材名称、ISBN、课程...">
+            <select id="majorFilter">
+                <option value="all">全部专业</option>
+                <option value="计算机">计算机</option>
+                <option value="经管">经管</option>
+                <option value="外语">外语</option>
+                <option value="数学">数学</option>
+                <option value="电子工程">电子工程</option>
+            </select>
+            <select id="sortFilter">
+                <option value="points_asc">按积分从低到高</option>
+                <option value="points_desc">按积分从高到低</option>
+                <option value="latest">最新上架</option>
+            </select>
+            <button class="btn-primary" id="filterBtn">🔍 筛选</button>
+        </div>
+
+        <!-- 教材预约回收按钮区域 -->
+        <div class="recycle-action-section">
+            <div class="recycle-action-card">
+                <div class="recycle-icon">📦</div>
+                <div class="recycle-info">
+                    <h3>教材回收预约</h3>
+                    <p>让闲置教材发挥更大价值，获取积分奖励</p>
+                </div>
+                <button class="btn-primary btn-recycle-action" id="openRecycleBtnOnHome">
+                    教材回收预约
+                </button>
+            </div>
+        </div>
+
+        <div class="book-grid-full" id="bookGrid">
+            <!-- 书籍卡片会通过JS动态生成 -->
+        </div>
+    </section>
+</main>
+
+<!-- 预约表单弹窗 - 删去专业一栏 -->
+<div id="recycleFormModal" class="modal recycle-modal">
+    <div class="modal-content modal-large">
+        <span class="close-btn" onclick="closeRecycleModal()">&times;</span>
+        <h3>📝 预约回收教材</h3>
+        <form id="recycleForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>📖 教材名称 <span class="required">*</span></label>
+                    <input type="text" id="bookName" placeholder="如：高等数学（第七版）" required>
+                </div>
+                <div class="form-group">
+                    <label>🔢 ISBN <span class="required">*</span></label>
+                    <input type="text" id="isbn" placeholder="978-7-04-xxxxxx" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>🏷️ 出版社 <span class="required">*</span></label>
+                    <input type="text" id="publisher" placeholder="如：高等教育出版社" required>
+                </div>
+                <div class="form-group">
+                    <label>⭐ 品相预估 <span class="required">*</span></label>
+                    <select id="condition" required>
+                        <option value="">请选择品相</option>
+                        <option value="全新">全新（未使用，无任何痕迹）</option>
+                        <option value="良好">良好（少量笔记，整体干净）</option>
+                        <option value="一般">一般（有笔记/划线，不影响阅读）</option>
+                        <option value="陈旧">陈旧（有磨损，不影响阅读）</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>📊 数量 <span class="required">*</span></label>
+                    <input type="number" id="quantity" value="1" min="1" max="10" required>
+                </div>
+                <div class="form-group">
+                    <!-- 空占位，保持布局 -->
+                </div>
+            </div>
+
+            <!-- 图片上传区域 - 只保留封面图 -->
+            <div class="form-group full-width">
+                <label>🖼️ 教材封面图</label>
+                <div class="upload-area">
+                    <div class="upload-item">
+                        <div class="upload-preview" id="coverPreview">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='104' viewBox='0 0 80 104'%3E%3Crect width='80' height='104' fill='%23e1eff8'/%3E%3Ctext x='40' y='52' text-anchor='middle' fill='%239ac2d9' font-size='12'%3E封面图%3C/text%3E%3C/svg%3E" alt="封面图预览">
+                        </div>
+                        <div class="upload-info">
+                            <span class="upload-label">封面图</span>
+                            <input type="file" id="coverImage" accept="image/*" class="file-input">
+                            <button type="button" class="btn-upload" onclick="document.getElementById('coverImage').click()">选择图片</button>
+                            <span class="upload-hint">建议尺寸：200*260px</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group full-width">
+                <label>📝 备注说明</label>
+                <textarea id="remark" rows="3" placeholder="如有其它说明，请填写"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="closeRecycleModal()">取消</button>
+                <button type="submit" class="btn-primary">提交预约</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 书籍详情弹窗 -->
+<div id="bookModal" class="modal">
+    <div class="modal-content book-detail-modal">
+        <span class="close-btn">&times;</span>
+
+        <div class="book-detail-layout">
+            <div class="book-images-section">
+                <div class="book-image-item">
+                    <div class="image-label">📖 封面图</div>
+                    <img id="modalBookImg" class="book-detail-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='150' viewBox='0 0 120 150'%3E%3Crect width='120' height='150' fill='%23d0e2f2'/%3E%3Ctext x='60' y='75' text-anchor='middle' fill='%231e6d8f' font-size='16'%3E封面图%3C/text%3E%3C/svg%3E" alt="教材封面">
+                </div>
+            </div>
+
+            <div class="book-info-section">
+                <h2 class="book-detail-title" id="modalBookTitle">高等数学（第七版）</h2>
+
+                <div class="book-detail-meta">
+                    <div class="meta-row">
+                        <span class="meta-label">📚 专业</span>
+                        <span class="meta-value" id="modalMajor">计算机</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">📖 教材名称</span>
+                        <span class="meta-value" id="modalBookName">高等数学（第七版）</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">🔢 ISBN</span>
+                        <span class="meta-value" id="modalIsbn">978-7-04-0123456</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">🏷️ 出版社</span>
+                        <span class="meta-value" id="modalPublisher">高等教育出版社</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">⭐ 品相</span>
+                        <span class="meta-value" id="modalCondition">良好（少量笔记）</span>
+                    </div>
+                </div>
+
+                <div class="book-detail-stats">
+                    <div class="stat-card-item">
+                        <div class="stat-label">所需积分</div>
+                        <div class="stat-value points-value" id="modalPoints">120</div>
+                    </div>
+                    <div class="stat-card-item">
+                        <div class="stat-label">库存数量</div>
+                        <div class="stat-value stock-value" id="modalStock">3 本</div>
+                    </div>
+                </div>
+
+                <div class="book-detail-actions">
+                    <button class="btn-primary btn-large" id="exchangeBookBtn">立即兑换</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/student.js"></script>
+</body>
+</html>
