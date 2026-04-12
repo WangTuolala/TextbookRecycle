@@ -52,6 +52,10 @@ async function confirmPickup(id) {
         await logisticsApiCall(`/exchanges/${id}/pickup`, 'POST');
         alert('确认成功！');
         await loadPickupList();
+        // 同时刷新奖品统计中的已领取数量
+        if (document.getElementById('prizeTableBody')) {
+            await loadPrizes();
+        }
     } catch (error) {
         alert(error.message);
     }
@@ -176,18 +180,21 @@ window.viewStudentInfo = async function(studentId, studentName) {
 // ==================== 奖品管理页面功能 ====================
 async function loadPrizes() {
     try {
-        const [prizesResult, exchangesResult] = await Promise.all([
+        const [prizesResult, pendingResult, completedResult] = await Promise.all([
             logisticsApiCall('/prizes', 'GET'),
-            logisticsApiCall('/exchanges/pending', 'GET')
+            logisticsApiCall('/exchanges/pending', 'GET'),
+            logisticsApiCall('/exchanges/completed', 'GET')
         ]);
         window.prizes = prizesResult.data || [];
-        window.pendingExchanges = exchangesResult.data || [];
+        window.pendingExchanges = pendingResult.data || [];
+        window.completedExchanges = completedResult.data || [];
         renderPrizeTable();
         updatePrizeStats();
     } catch (error) {
         console.error('加载奖品失败:', error);
         window.prizes = [];
         window.pendingExchanges = [];
+        window.completedExchanges = [];
     }
 }
 
@@ -223,7 +230,7 @@ function updatePrizeStats() {
     
     if (totalEl) totalEl.innerText = window.prizes?.length || 0;
     if (pendingEl) pendingEl.innerText = window.pendingExchanges?.length || 0;
-    if (completedEl) completedEl.innerText = '0';
+    if (completedEl) completedEl.innerText = window.completedExchanges?.length || 0;
     if (mostPopularEl) mostPopularEl.innerText = window.prizes?.[0]?.name || '-';
 }
 
@@ -322,7 +329,20 @@ async function updatePointsHint() {
     }
 }
 
-window.viewPointsRule = function() {
+window.viewPointsRule = async function() {
+    try {
+        const result = await logisticsApiCall('/points-rule', 'GET');
+        const rule = result.data;
+        if (rule) {
+            document.getElementById('rulePointsNew').innerText = rule.ruleNew;
+            document.getElementById('rulePointsGood').innerText = rule.ruleGood;
+            document.getElementById('rulePointsNormal').innerText = rule.ruleNormal;
+            document.getElementById('rulePointsOld').innerText = rule.ruleOld;
+            document.getElementById('rulePrizeMax').innerText = rule.prizeMax;
+        }
+    } catch (error) {
+        console.error('获取积分规则失败:', error);
+    }
     Modal.open('ruleModal');
 };
 

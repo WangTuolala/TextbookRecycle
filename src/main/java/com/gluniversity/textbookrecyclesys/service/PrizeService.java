@@ -94,6 +94,12 @@ public class PrizeService {
                 .toList();
     }
 
+    public List<PrizeExchange> getAllCompletedExchanges() {
+        return exchangeRepository.findAll().stream()
+                .filter(e -> "COMPLETED".equals(e.getStatus()))
+                .toList();
+    }
+
     @Transactional
     public void confirmPickup(Long exchangeId) {
         PrizeExchange exchange = exchangeRepository.findById(exchangeId)

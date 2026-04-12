@@ -6,6 +6,8 @@ import com.gluniversity.textbookrecyclesys.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -68,6 +70,11 @@ public class LogisticsController {
         return ResponseEntity.ok(ApiResponse.success(prizeService.getAllPendingExchanges()));
     }
 
+    @GetMapping("/exchanges/completed")
+    public ResponseEntity<ApiResponse<List<PrizeExchange>>> getCompletedExchanges() {
+        return ResponseEntity.ok(ApiResponse.success(prizeService.getAllCompletedExchanges()));
+    }
+
     @PostMapping("/exchanges/{id}/pickup")
     public ResponseEntity<ApiResponse<Void>> confirmPickup(@PathVariable Long id) {
         try {
@@ -95,11 +102,13 @@ public class LogisticsController {
             @RequestBody Map<String, String> request,
             @RequestHeader(value = "X-Operator-Name", required = false) String operatorName) {
         try {
-            String operator = (operatorName != null && !operatorName.isEmpty()) ? operatorName : "后勤";
+            String decodedOperator = (operatorName != null && !operatorName.isEmpty()) 
+                    ? URLDecoder.decode(operatorName, StandardCharsets.UTF_8.toString()) 
+                    : "后勤";
             Announcement announcement = announcementService.publishAnnouncement(
                     request.get("title"),
                     request.get("content"),
-                    operator,
+                    decodedOperator,
                     "LOGISTICS"
             );
             return ResponseEntity.ok(ApiResponse.success("发布成功", announcement));
