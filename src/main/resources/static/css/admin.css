@@ -850,6 +850,44 @@
     flex-wrap: wrap;
     margin-bottom: 20px;
 }
+
+/* 盘点统计行 — 三卡片横排 */
+.check-stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.check-stats-row .stat-card {
+    flex: 1;
+    padding: 1rem 1.2rem;
+    min-width: 0;
+    max-width: none;
+    border-radius: 16px;
+}
+.check-stats-row .stat-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+.check-stats-row .stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #0a3e55;
+}
+.check-stats-row .stat-card.success {
+    border-color: #b8e6c1;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+.check-stats-row .stat-card.success .stat-value {
+    color: #15803d;
+}
+.check-stats-row .stat-card.danger {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%);
+}
+.check-stats-row .stat-card.danger .stat-value {
+    color: #dc2626;
+}
 .check-info-field {
     flex: 1;
     min-width: 200px;

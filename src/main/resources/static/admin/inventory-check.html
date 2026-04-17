@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,9 +22,7 @@
         <a href="/admin/category-mgmt.html">分类管理</a>
     </div>
     <div class="nav-user">
-            <span class="nav-user-info">
-                👤 <span id="navUserName">管理员</span>
-            </span>
+        <span class="nav-user-info">👤 <span id="navUserName">管理员</span></span>
         <button class="logout-btn" onclick="handleLogout()">退出</button>
     </div>
 </nav>
@@ -39,32 +37,30 @@
         <a href="/admin/inventory-check.html" class="tab-btn active">盘点</a>
     </div>
 
-    <div class="check-info-card">
-        <h3>🔍 盘点信息</h3>
-        <div class="check-info-row">
-            <div class="check-info-field">
-                <label>盘点单号</label>
-                <input type="text" id="checkNo" value="" readonly>
-            </div>
-            <div class="check-info-field">
-                <label>盘点日期</label>
-                <input type="date" id="checkDate" value="">
-            </div>
-            <div class="check-info-field">
-                <label>盘点人员</label>
-                <input type="text" id="checkOperator" value="" readonly>
-            </div>
+    <!-- 盘点统计 -->
+    <div class="check-stats-row">
+        <div class="stat-card">
+            <div class="stat-label">📦 总库存</div>
+            <div class="stat-value" id="statTotalStock">0</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-label">📈 盘盈</div>
+            <div class="stat-value" id="statProfit">0</div>
+        </div>
+        <div class="stat-card danger">
+            <div class="stat-label">📉 盘亏</div>
+            <div class="stat-value" id="statLoss">0</div>
         </div>
     </div>
 
     <div class="inventory-actions">
         <div class="inventory-actions-left">
-            <button class="btn-primary" onclick="loadInventoryCheckData()">开始盘点</button>
-            <button class="btn-secondary" onclick="alert('盘点结果已保存')">保存结果</button>
-            <button class="btn-secondary" onclick="alert('导出功能开发中')">导出报表</button>
+            <input type="text" id="checkSearchInput" placeholder="搜索教材名称" class="search-input">
+            <button class="btn-primary" onclick="searchCheckTable()">🔍 搜索</button>
+            <button class="btn-secondary" onclick="openCheckModal()">开始盘点</button>
         </div>
         <div class="inventory-actions-right">
-            <span class="diff-count">差异总数: <span class="diff-number">0</span></span>
+            <span class="diff-count">差异总数: <span class="diff-number" id="diffTotal">0</span></span>
         </div>
     </div>
 
@@ -73,38 +69,64 @@
         <tr>
             <th>教材名称</th>
             <th>ISBN</th>
-            <th>系统库存</th>
+            <th>全部库存</th>
             <th>实际盘点</th>
             <th>差异</th>
             <th>备注</th>
+            <th>经手人</th>
         </tr>
         </thead>
-        <tbody id="inventoryCheckTableBody">
+        <tbody id="checkTableBody">
         </tbody>
     </table>
+</main>
 
-    <div class="check-summary-card">
-        <h3>📊 盘点汇总</h3>
-        <div class="summary-stats">
-            <div class="summary-item">
-                <div class="summary-label">总品种数</div>
-                <div class="summary-value" id="totalSpecies">0</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">总库存量</div>
-                <div class="summary-value" id="totalStock">0</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">盘盈数量</div>
-                <div class="summary-value success" id="profitCount">0</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">盘亏数量</div>
-                <div class="summary-value danger" id="lossCount">0</div>
-            </div>
+<!-- 开始盘点弹窗 -->
+<div id="checkModal" class="modal">
+    <div class="modal-content modal-lg">
+        <span class="close-btn" onclick="Modal.close('checkModal')">&times;</span>
+        <h3>🔍 开始盘点</h3>
+        <div class="modal-field">
+            <label>书籍名称 <span class="required">*</span></label>
+            <select id="checkBookSelect" class="filter-select" onchange="onCheckBookChange()">
+                <option value="">-- 请选择教材 --</option>
+            </select>
+        </div>
+        <div class="modal-field">
+            <label>ISBN</label>
+            <input type="text" id="checkIsbn" readonly>
+        </div>
+        <div class="modal-field">
+            <label>全部库存</label>
+            <input type="number" id="checkSystemStock" readonly>
+        </div>
+        <div class="modal-field">
+            <label>实际盘点 <span class="required">*</span></label>
+            <input type="number" id="checkActualStock" value="0" min="0" onchange="calcCheckDiff()">
+        </div>
+        <div class="modal-field">
+            <label>差异</label>
+            <input type="text" id="checkDiff" readonly>
+        </div>
+        <div class="modal-field">
+            <label>备注 <span class="required">*</span></label>
+            <select id="checkRemark">
+                <option value="">-- 请选择 --</option>
+                <option value="正常">正常</option>
+                <option value="多">多</option>
+                <option value="少">少</option>
+            </select>
+        </div>
+        <div class="modal-field">
+            <label>经手人 <span class="required">*</span></label>
+            <input type="text" id="checkOperatorInput" placeholder="请输入经手人姓名">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-primary" onclick="submitCheckItem()">确认添加</button>
+            <button class="btn-secondary" onclick="Modal.close('checkModal')">取消</button>
         </div>
     </div>
-</main>
+</div>
 
 <script src="/js/common.js"></script>
 <script src="/js/admin.js"></script>

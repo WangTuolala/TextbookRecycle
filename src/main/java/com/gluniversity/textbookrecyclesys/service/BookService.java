@@ -2,9 +2,11 @@ package com.gluniversity.textbookrecyclesys.service;
 
 import com.gluniversity.textbookrecyclesys.entity.Book;
 import com.gluniversity.textbookrecyclesys.entity.BookExchange;
+import com.gluniversity.textbookrecyclesys.entity.InventoryRecord;
 import com.gluniversity.textbookrecyclesys.entity.PointsRecord;
 import com.gluniversity.textbookrecyclesys.repository.BookExchangeRepository;
 import com.gluniversity.textbookrecyclesys.repository.BookRepository;
+import com.gluniversity.textbookrecyclesys.repository.InventoryRecordRepository;
 import com.gluniversity.textbookrecyclesys.repository.PointsRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +29,7 @@ import java.util.UUID;
 public class BookService {
     private final BookRepository bookRepository;
     private final BookExchangeRepository bookExchangeRepository;
+    private final InventoryRecordRepository inventoryRecordRepository;
     private final PointsRecordRepository pointsRecordRepository;
 
     @Value("${file.upload-dir:uploads}")
@@ -156,14 +159,26 @@ public class BookService {
         
         userService.deductPoints(studentId, totalCost, "EXCHANGE", book.getName(), "BOOK");
 
+        String studentName = userService.findById(studentId)
+                .map(u -> u.getName())
+                .orElse("未知学生");
+
         book.setStock(book.getStock() - quantity);
         book.setUpdateTime(LocalDateTime.now());
         bookRepository.save(book);
 
+        // 自动出库记录
+        InventoryRecord record = new InventoryRecord();
+        record.setBookId(bookId);
+        record.setBookName(book.getName());
+        record.setType("OUT");
+        record.setQuantity(quantity);
+        record.setOperator(studentName);
+        record.setRemark("学生兑换: " + book.getName() + " x" + quantity);
+        record.setCreateTime(LocalDateTime.now());
+        inventoryRecordRepository.save(record);
+
         // 记录书籍兑换
-        String studentName = userService.findById(studentId)
-                .map(u -> u.getName())
-                .orElse("未知学生");
         BookExchange exchange = new BookExchange();
         exchange.setStudentId(studentId);
         exchange.setStudentName(studentName);
@@ -173,7 +188,7 @@ public class BookService {
         exchange.setPointsCost(totalCost);
         exchange.setExchangeTime(LocalDateTime.now());
         bookExchangeRepository.save(exchange);
-        
+
         return book;
     }
 

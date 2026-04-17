@@ -191,6 +191,17 @@ public class RecycleService {
         book.setCreateTime(LocalDateTime.now());
         book = bookRepository.save(book);
 
+        // 自动入库记录
+        InventoryRecord record = new InventoryRecord();
+        record.setBookId(book.getId());
+        record.setBookName(book.getName());
+        record.setType("IN");
+        record.setQuantity(1);
+        record.setOperator(operatorName != null ? operatorName : "系统");
+        record.setRemark("评估上架: " + evaluation.getBookName());
+        record.setCreateTime(LocalDateTime.now());
+        inventoryRecordRepository.save(record);
+
         evaluation.setStatus("LISTED");
         evaluationRepository.save(evaluation);
 

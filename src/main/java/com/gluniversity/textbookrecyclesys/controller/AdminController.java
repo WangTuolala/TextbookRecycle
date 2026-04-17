@@ -26,6 +26,7 @@ public class AdminController {
     private final UserService userService;
     private final PrizeRepository prizeRepository;
     private final BookExchangeRepository bookExchangeRepository;
+    private final StockCheckRepository stockCheckRepository;
 
     // ===== 数据统计 =====
     @GetMapping("/stats")
@@ -446,6 +447,31 @@ public class AdminController {
     @GetMapping("/inventory/books")
     public ResponseEntity<ApiResponse<List<Book>>> getInventoryBooks() {
         return ResponseEntity.ok(ApiResponse.success(inventoryService.getAllBooksForInventory()));
+    }
+
+    @GetMapping("/inventory/books-with-operators")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getInventoryBooksWithOperators() {
+        return ResponseEntity.ok(ApiResponse.success(inventoryService.getBooksWithOperator()));
+    }
+
+    @GetMapping("/inventory/all-records")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllInventoryRecords() {
+        return ResponseEntity.ok(ApiResponse.success(inventoryService.getAllRecordsDetailed()));
+    }
+
+    @GetMapping("/stock-checks")
+    public ResponseEntity<ApiResponse<List<StockCheck>>> getStockChecks() {
+        return ResponseEntity.ok(ApiResponse.success(stockCheckRepository.findAllByOrderByCheckTimeDesc()));
+    }
+
+    @PostMapping("/stock-checks")
+    public ResponseEntity<ApiResponse<StockCheck>> addStockCheck(@RequestBody StockCheck check) {
+        try {
+            StockCheck saved = stockCheckRepository.save(check);
+            return ResponseEntity.ok(ApiResponse.success("盘点已添加", saved));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @GetMapping("/inventory/low-stock")

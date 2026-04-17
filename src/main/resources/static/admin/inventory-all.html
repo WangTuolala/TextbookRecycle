@@ -41,12 +41,10 @@
 
     <div class="inventory-actions">
         <div class="inventory-actions-left">
-            <input type="text" id="inventorySearchInput" placeholder="搜索教材名称或ISBN" oninput="searchInventoryTable()">
-            <button class="btn-primary" onclick="openStockInModal()">入库</button>
-            <button class="btn-secondary" onclick="openStockOutModal()">出库</button>
-        </div>
-        <div class="inventory-actions-right">
-            <button class="btn-secondary btn-stocktake" onclick="location.href='/admin/inventory-check.html'">开始盘点</button>
+            <input type="text" id="inventorySearchInput" placeholder="搜索教材名称" class="search-input">
+            <button class="btn-primary" onclick="searchInventoryTable()">🔍 搜索</button>
+            <button class="btn-secondary" onclick="openStockInModal()">+ 新增入库</button>
+            <button class="btn-secondary" onclick="openStockOutModal()">+ 新增出库</button>
         </div>
     </div>
 
@@ -55,10 +53,10 @@
         <tr>
             <th>教材名称</th>
             <th>ISBN</th>
-            <th>库存数量</th>
-            <th>在库位置</th>
-            <th>上次更新</th>
-            <th>操作</th>
+            <th>类型</th>
+            <th>数量</th>
+            <th>时间</th>
+            <th>经手人</th>
         </tr>
         </thead>
         <tbody id="inventoryTableBody">
