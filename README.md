@@ -480,7 +480,7 @@ CREATE TABLE evaluations (
     points INT,
     cover_image TEXT,
     remark VARCHAR(500),
-    status VARCHAR(20) DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, LISTED, DELISTED',
+    status VARCHAR(20) DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, SYNCED, LISTED, DELISTED, REJECTED',
     submit_time DATETIME,
     evaluate_time DATETIME,
     INDEX idx_student_id (student_id),

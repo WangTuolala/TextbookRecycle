@@ -450,6 +450,8 @@ function renderEvaluateTable() {
         } else if (item.status === 'APPROVED') {
             actions = '<button class="btn-sm btn-sync" onclick="syncEvaluate(\'' + item.id + '\',this)">同步积分</button>' +
                       '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
+        } else if (item.status === 'SYNCED') {
+            actions = '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
         } else if (item.status === 'LISTED') {
             actions = '<span style="color:#28a745;">已上架</span>';
         } else if (item.status === 'DELISTED') {
@@ -533,22 +535,20 @@ window.syncEvaluate = async function(id, btn) {
     }
 };
 
-window.goToBookMgmt = function(id) {
-    const item = window.evaluateData.find(e => e.id === id);
-    if (!item) return;
-    sessionStorage.setItem('bookPrefill', JSON.stringify({
-        fromEvaluation: true,
-        evaluationId: id,
-        bookName: item.bookName || '',
-        author: item.author || '',
-        publisher: item.publisher || '',
-        isbn: item.isbn || '',
-        condition: item.adminCondition || item.selfCondition || '良好',
-        points: item.points || 0,
-        coverImage: item.coverImage || '',
-        remark: item.remark || ''
-    }));
-    window.location.href = '/admin/book-mgmt.html';
+window.goToBookMgmt = async function(id) {
+    if (!confirm('确认上架该教材？系统将自动创建书籍库存记录。')) return;
+    try {
+        const result = await adminApiCall('/evaluations/' + id + '/list', 'POST');
+        if (result.success) {
+            alert('上架成功！');
+            await loadEvaluateData();
+            renderEvaluateTable();
+        } else {
+            alert(result.message || '上架失败');
+        }
+    } catch (error) {
+        alert(error.message);
+    }
 };
 
 window.showAppointmentDetail = function(id) {
@@ -1245,7 +1245,8 @@ function renderInventoryTable() {
     let filtered = (window.inventoryBooks || []).slice();
     if (searchTerm) {
         filtered = filtered.filter(b =>
-            (b.bookName||'').toLowerCase().includes(searchTerm)
+            (b.bookName||'').toLowerCase().includes(searchTerm) ||
+            (b.isbn||'').toLowerCase().includes(searchTerm)
         );
     }
 
@@ -1259,7 +1260,7 @@ function renderInventoryTable() {
         const typeClass = r.type === 'IN' ? 'listed' : 'delisted';
         return '<tr>' +
             '<td>' + escapeHtml(r.bookName || '-') + '</td>' +
-            '<td>-</td>' +
+            '<td>' + escapeHtml(r.isbn || '-') + '</td>' +
             '<td><span class="status-badge ' + typeClass + '">' + typeLabel + '</span></td>' +
             '<td>' + (r.quantity||0) + '</td>' +
             '<td>' + (r.time ? formatDateTime(r.time) : '-') + '</td>' +
