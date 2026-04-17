@@ -323,8 +323,49 @@ async function initEvaluatePage() {
 
 async function loadEvaluateData() {
     try {
-        const result = await adminApiCall('/evaluations', 'GET');
-        window.evaluateData = result.data || [];
+        const [evalResult, apptResult] = await Promise.all([
+            adminApiCall('/evaluations', 'GET'),
+            adminApiCall('/appointments', 'GET')
+        ]);
+        const evaluations = evalResult.data || [];
+        const appointments = (apptResult.data || []).filter(a => a.status === 'PENDING');
+
+        // Normalize appointments to evaluation-like objects (only PENDING ones without evaluation)
+        const appointmentMap = {};
+        evaluations.forEach(ev => {
+            if (ev.appointmentId) appointmentMap[ev.appointmentId] = true;
+        });
+
+        const normalizedAppointments = appointments
+            .filter(a => !appointmentMap[a.appointmentId])
+            .map(a => ({
+                _sourceType: 'appointment',
+                _origId: a.id,
+                id: 'APPT-' + a.id,
+                appointmentId: a.appointmentId,
+                studentId: a.studentId,
+                studentName: a.studentName,
+                studentUsername: a.studentUsername,
+                bookName: a.bookName,
+                author: '',
+                publisher: a.publisher || '',
+                isbn: a.isbn || '',
+                selfCondition: a.condition || '良好',
+                adminCondition: null,
+                points: 0,
+                coverImage: a.coverImage || '',
+                remark: a.remark || '',
+                status: 'PENDING',
+                submitTime: a.submitTime
+            }));
+
+        const normalizedEvals = evaluations.map(ev => ({
+            _sourceType: 'evaluation',
+            _origId: ev.id,
+            ...ev
+        }));
+
+        window.evaluateData = [...normalizedAppointments, ...normalizedEvals];
     } catch (error) {
         console.error('加载评估数据失败:', error);
         window.evaluateData = [];
@@ -347,11 +388,11 @@ async function loadPointsRule() {
 }
 
 function getStatusLabel(status) {
-    const map = { 'PENDING': '待审核', 'APPROVED': '已通过', 'LISTED': '已上架', 'DELISTED': '已下架', 'REJECTED': '已拒绝' };
+    const map = { 'PENDING': '待审核', 'APPROVED': '已通过', 'SYNCED': '已同步', 'LISTED': '已上架', 'DELISTED': '已下架', 'REJECTED': '已拒绝' };
     return map[status] || status;
 }
 function getStatusClass(status) {
-    const map = { 'PENDING': 'pending', 'APPROVED': 'approved', 'LISTED': 'listed', 'DELISTED': 'delisted', 'REJECTED': 'delisted' };
+    const map = { 'PENDING': 'pending', 'APPROVED': 'approved', 'SYNCED': 'approved', 'LISTED': 'listed', 'DELISTED': 'delisted', 'REJECTED': 'delisted' };
     return map[status] || '';
 }
 
@@ -401,10 +442,14 @@ function renderEvaluateTable() {
 
         let actions = '';
         if (item.status === 'PENDING') {
-            actions = '<button class="btn-sm btn-pass" onclick="approveEvaluate(' + item.id + ',this)">通过</button>';
+            if (item._sourceType === 'appointment') {
+                actions = '<button class="btn-sm btn-pass" onclick="approveAppointment(' + item._origId + ',this)">通过</button>';
+            } else {
+                actions = '<button class="btn-sm btn-pass" onclick="approveEvaluate(\'' + item.id + '\',this)">通过</button>';
+            }
         } else if (item.status === 'APPROVED') {
-            actions = '<button class="btn-sm btn-sync" onclick="syncEvaluate(' + item.id + ',this)">同步积分</button>' +
-                      '<button class="btn-sm btn-list" onclick="goToBookMgmt(' + item.id + ')">上架</button>';
+            actions = '<button class="btn-sm btn-sync" onclick="syncEvaluate(\'' + item.id + '\',this)">同步积分</button>' +
+                      '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
         } else if (item.status === 'LISTED') {
             actions = '<span style="color:#28a745;">已上架</span>';
         } else if (item.status === 'DELISTED') {
@@ -413,12 +458,13 @@ function renderEvaluateTable() {
             actions = '<span style="color:#dc3545;">已拒绝</span>';
         }
 
+        const selectDisabled = '';
         return '<tr data-id="' + item.id + '">' +
-            '<td class="appointment-link" onclick="showAppointmentDetail(' + item.id + ')">&#128196; ' + (item.appointmentId || '-') + '</td>' +
+            '<td class="appointment-link" onclick="showAppointmentDetail(\'' + item.id + '\')">&#128196; ' + (item.appointmentId || '-') + '</td>' +
             '<td class="student-name-cell" onclick="viewStudentInfo(\'' + sId + '\',\'' + sName + '\')">' + (item.studentName ? item.studentName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.studentUsername || sId || '-') + '</small></td>' +
             '<td style="text-align:left;">' + (item.bookName ? item.bookName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.author || '') + '</small></td>' +
             '<td>' + (item.selfCondition || '-') + '</td>' +
-            '<td><select class="evaluate-select" data-id="' + item.id + '" onchange="onConditionChange(this,' + item.id + ')">' +
+            '<td><select class="evaluate-select" data-id="' + item.id + '" onchange="onConditionChange(this,\'' + item.id + '\')"' + selectDisabled + '>' +
                 '<option value="全新"' + (cond === '全新' ? ' selected' : '') + '>全新</option>' +
                 '<option value="良好"' + (cond === '良好' ? ' selected' : '') + '>良好</option>' +
                 '<option value="一般"' + (cond === '一般' ? ' selected' : '') + '>一般</option>' +
@@ -448,6 +494,23 @@ window.approveEvaluate = async function(id, btn) {
         const cond = (item && item.adminCondition) ? item.adminCondition : '良好';
         await adminApiCall('/evaluations/' + id + '/approve', 'POST', { adminCondition: cond });
         alert('已通过审核');
+        await loadEvaluateData();
+        renderEvaluateTable();
+    } catch (error) {
+        alert(error.message);
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.approveAppointment = async function(appointmentId, btn) {
+    if (!confirm('通过该回收预约？')) return;
+    if (btn) btn.disabled = true;
+    try {
+        // Read selected condition from the select element for this row
+        const selectEl = document.querySelector('.evaluate-select[data-id="APPT-' + appointmentId + '"]');
+        const adminCondition = selectEl ? selectEl.value : '良好';
+        await adminApiCall('/appointments/' + appointmentId + '/approve', 'POST', { adminCondition: adminCondition });
+        alert('已通过审核，评估记录已创建');
         await loadEvaluateData();
         renderEvaluateTable();
     } catch (error) {
