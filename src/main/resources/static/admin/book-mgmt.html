@@ -13,7 +13,7 @@
     <div class="nav-links">
         <a href="/admin/index.html">数据总览</a>
         <a href="/admin/profile.html">个人信息</a>
-        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/audit.html">领取管理</a>
         <a href="/admin/evaluate.html">评估核算</a>
         <a href="/admin/rule.html">积分规则</a>
         <a href="/admin/inventory-all.html">库存管理</a>
@@ -63,15 +63,10 @@
         <table class="data-table book-table">
             <thead>
             <tr>
-                <th>封面</th>
+                <th>图片</th>
                 <th>名称</th>
-                <th>作者</th>
-                <th>出版社</th>
-                <th>ISBN</th>
                 <th>专业</th>
                 <th>品相</th>
-                <th>积分</th>
-                <th>库存</th>
                 <th>状态</th>
                 <th>操作</th>
             </tr>
@@ -96,18 +91,18 @@
                     <input type="text" id="bookName" placeholder="请输入书籍名称" required>
                 </div>
                 <div class="form-group">
-                    <label>作者</label>
-                    <input type="text" id="bookAuthor" placeholder="请输入作者">
+                    <label>作者 <span class="required">*</span></label>
+                    <input type="text" id="bookAuthor" placeholder="请输入作者" required>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>出版社</label>
-                    <input type="text" id="bookPublisher" placeholder="请输入出版社">
+                    <label>出版社 <span class="required">*</span></label>
+                    <input type="text" id="bookPublisher" placeholder="请输入出版社" required>
                 </div>
                 <div class="form-group">
-                    <label>ISBN</label>
-                    <input type="text" id="bookIsbn" placeholder="请输入ISBN">
+                    <label>ISBN <span class="required">*</span></label>
+                    <input type="text" id="bookIsbn" placeholder="请输入ISBN" required>
                 </div>
             </div>
             <div class="form-row">
@@ -119,7 +114,7 @@
                 </div>
                 <div class="form-group">
                     <label>品相 <span class="required">*</span></label>
-                    <select id="bookCondition" required>
+                    <select id="bookCondition" required onchange="updateBookPointsByCondition()">
                         <option value="">请选择品相</option>
                         <option value="全新">全新</option>
                         <option value="良好">良好</option>
@@ -131,7 +126,8 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>所需积分 <span class="required">*</span></label>
-                    <input type="number" id="bookPoints" placeholder="请输入所需积分" min="0" step="10" required>
+                    <div class="points-auto-display" id="bookPointsDisplay">—</div>
+                    <input type="hidden" id="bookPoints" value="0">
                 </div>
                 <div class="form-group">
                     <label>库存数量 <span class="required">*</span></label>
@@ -147,8 +143,9 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>书籍封面</label>
-                    <input type="text" id="bookCoverImage" placeholder="封面图片URL">
+                    <label>教材封面图 <span class="required">*</span></label>
+                    <input type="file" id="bookCoverFile" accept="image/*" required onchange="previewBookCover(this)">
+                    <div class="cover-preview" id="coverPreview"></div>
                 </div>
             </div>
             <div class="modal-actions">

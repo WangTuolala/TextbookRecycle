@@ -2,14 +2,16 @@
 const API_BASE = '/api';
 
 async function apiCall(endpoint, method, body, headers = {}) {
+    const isFormData = body instanceof FormData;
     const options = {
         method,
         headers: {
-            'Content-Type': 'application/json',
+            ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
             ...headers
-        }
+        },
+        ...(isFormData ? { body } : {})
     };
-    if (body) {
+    if (body && !isFormData) {
         options.body = JSON.stringify(body);
     }
     const response = await fetch(API_BASE + endpoint, options);

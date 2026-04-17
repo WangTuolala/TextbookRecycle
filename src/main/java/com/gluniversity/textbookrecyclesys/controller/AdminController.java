@@ -2,10 +2,14 @@ package com.gluniversity.textbookrecyclesys.controller;
 
 import com.gluniversity.textbookrecyclesys.dto.*;
 import com.gluniversity.textbookrecyclesys.entity.*;
+import com.gluniversity.textbookrecyclesys.repository.*;
 import com.gluniversity.textbookrecyclesys.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -20,6 +24,8 @@ public class AdminController {
     private final AnnouncementService announcementService;
     private final InventoryService inventoryService;
     private final UserService userService;
+    private final PrizeRepository prizeRepository;
+    private final BookExchangeRepository bookExchangeRepository;
 
     // ===== 数据统计 =====
     @GetMapping("/stats")
@@ -27,12 +33,18 @@ public class AdminController {
         int totalRecycled = recycleService.getAllEvaluations().size();
         int totalExchanged = prizeService.getAllExchanges().stream().filter(e -> "COMPLETED".equals(e.getStatus())).toList().size();
         int pendingAppointments = recycleService.getAppointmentsByStatus("PENDING").size();
+        int approvedAppointments = recycleService.getAppointmentsByStatus("APPROVED").size();
+        int pendingEvaluations = recycleService.getEvaluationsByStatus("APPROVED").size();
+        int completedEvaluations = recycleService.getEvaluationsByStatus("SYNCED").size() + recycleService.getEvaluationsByStatus("LISTED").size();
         List<Book> lowStockBooks = inventoryService.getLowStockBooks();
         
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "totalRecycled", totalRecycled,
                 "totalExchanged", totalExchanged,
                 "pendingAppointments", pendingAppointments,
+                "approvedAppointments", approvedAppointments,
+                "pendingEvaluations", pendingEvaluations,
+                "completedEvaluations", completedEvaluations,
                 "lowStockBooks", lowStockBooks
         )));
     }
@@ -41,6 +53,36 @@ public class AdminController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> getChartStats() {
         Map<String, Object> chartData = recycleService.getChartStats();
         return ResponseEntity.ok(ApiResponse.success(chartData));
+    }
+
+    // ===== 个人信息 =====
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<User>> getProfile(@RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        if (userId != null) {
+            return userService.findById(userId)
+                    .map(u -> ResponseEntity.ok(ApiResponse.success(u)))
+                    .orElse(ResponseEntity.ok(ApiResponse.success(null)));
+        }
+        // 没有header时返回null，让前端自行处理
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    // ===== 教材兑换领取 =====
+    @GetMapping("/book-exchanges")
+    public ResponseEntity<ApiResponse<List<BookExchange>>> getBookExchanges() {
+        List<BookExchange> exchanges = bookExchangeRepository.findAllByOrderByExchangeTimeDesc();
+        return ResponseEntity.ok(ApiResponse.success(exchanges));
+    }
+
+    @PutMapping("/book-exchanges/{id}/confirm")
+    public ResponseEntity<ApiResponse<String>> confirmBookPickup(@PathVariable Long id) {
+        return bookExchangeRepository.findById(id)
+                .map(ex -> {
+                    ex.setStatus("COMPLETED");
+                    bookExchangeRepository.save(ex);
+                    return ResponseEntity.ok(ApiResponse.success("领取确认成功"));
+                })
+                .orElse(ResponseEntity.badRequest().body(ApiResponse.error("记录不存在")));
     }
 
     // ===== 用户查询 =====
@@ -68,38 +110,64 @@ public class AdminController {
     }
 
     @PostMapping("/books")
-    public ResponseEntity<ApiResponse<Book>> addBook(@RequestBody BookRequest request) {
+    public ResponseEntity<ApiResponse<Book>> addBook(
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "author", required = false) String author,
+            @RequestParam(value = "publisher", required = false) String publisher,
+            @RequestParam(value = "isbn", required = false) String isbn,
+            @RequestParam(value = "major", required = false) String major,
+            @RequestParam(value = "condition", required = false) String condition,
+            @RequestParam(value = "points", required = false) Integer points,
+            @RequestParam(value = "stock", required = false) Integer stock,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "coverImageFile", required = false) MultipartFile coverImageFile) {
         try {
             Book book = new Book();
-            book.setName(request.getName());
-            book.setAuthor(request.getAuthor());
-            book.setPublisher(request.getPublisher());
-            book.setIsbn(request.getIsbn());
-            book.setMajor(request.getMajor());
-            book.setPoints(request.getPoints());
-            book.setStock(request.getStock());
-            book.setCoverImage(request.getCoverImage());
-            Book saved = bookService.addBook(book);
+            book.setName(name);
+            book.setAuthor(author);
+            book.setPublisher(publisher);
+            book.setIsbn(isbn);
+            book.setMajor(major);
+            book.setCondition(condition);
+            book.setPoints(points != null ? points : 0);
+            book.setStock(stock != null ? stock : 0);
+            Book saved = bookService.addBookWithImage(book, coverImageFile);
             return ResponseEntity.ok(ApiResponse.success("添加成功", saved));
+        } catch (IOException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("封面上传失败: " + e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @PutMapping("/books/{id}")
-    public ResponseEntity<ApiResponse<Book>> updateBook(@PathVariable Long id, @RequestBody BookRequest request) {
+    public ResponseEntity<ApiResponse<Book>> updateBook(
+            @PathVariable Long id,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "author", required = false) String author,
+            @RequestParam(value = "publisher", required = false) String publisher,
+            @RequestParam(value = "isbn", required = false) String isbn,
+            @RequestParam(value = "major", required = false) String major,
+            @RequestParam(value = "condition", required = false) String condition,
+            @RequestParam(value = "points", required = false) Integer points,
+            @RequestParam(value = "stock", required = false) Integer stock,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "coverImageFile", required = false) MultipartFile coverImageFile) {
         try {
             Book book = new Book();
-            book.setName(request.getName());
-            book.setAuthor(request.getAuthor());
-            book.setPublisher(request.getPublisher());
-            book.setIsbn(request.getIsbn());
-            book.setMajor(request.getMajor());
-            book.setPoints(request.getPoints());
-            book.setStock(request.getStock());
-            book.setCoverImage(request.getCoverImage());
-            Book updated = bookService.updateBook(id, book);
+            book.setName(name);
+            book.setAuthor(author);
+            book.setPublisher(publisher);
+            book.setIsbn(isbn);
+            book.setMajor(major);
+            book.setCondition(condition);
+            book.setPoints(points != null ? points : 0);
+            book.setStock(stock != null ? stock : 0);
+            book.setStatus(status != null ? status : "LISTED");
+            Book updated = bookService.updateBookWithImage(id, book, coverImageFile);
             return ResponseEntity.ok(ApiResponse.success("更新成功", updated));
+        } catch (IOException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("封面上传失败: " + e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
@@ -110,6 +178,17 @@ public class AdminController {
         try {
             bookService.deleteBook(id);
             return ResponseEntity.ok(ApiResponse.success("删除成功", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/books/{id}/status")
+    public ResponseEntity<ApiResponse<Book>> toggleBookStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            String status = body.get("status");
+            Book updated = bookService.updateBookStatus(id, status);
+            return ResponseEntity.ok(ApiResponse.success("状态已更新", updated));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
@@ -164,10 +243,28 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(appointments));
     }
 
+    @GetMapping("/appointments/search")
+    public ResponseEntity<ApiResponse<List<RecycleAppointment>>> searchAppointments(
+            @RequestParam String keyword) {
+        List<RecycleAppointment> appointments = recycleService.searchAppointments(keyword);
+        return ResponseEntity.ok(ApiResponse.success(appointments));
+    }
+
+    @GetMapping("/evaluations/search")
+    public ResponseEntity<ApiResponse<List<Evaluation>>> searchEvaluations(
+            @RequestParam String keyword) {
+        List<Evaluation> evaluations = recycleService.searchEvaluations(keyword);
+        return ResponseEntity.ok(ApiResponse.success(evaluations));
+    }
+
     @PostMapping("/appointments/{id}/approve")
-    public ResponseEntity<ApiResponse<Evaluation>> approveAppointmentRequest(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Evaluation>> approveAppointmentRequest(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> request) {
         try {
-            Evaluation evaluation = recycleService.approveAppointment(id, "良好", "管理员");
+            String adminCondition = (request != null && request.get("adminCondition") != null)
+                    ? request.get("adminCondition") : "良好";
+            Evaluation evaluation = recycleService.approveAppointment(id, adminCondition, "管理员");
             return ResponseEntity.ok(ApiResponse.success(evaluation));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
@@ -307,8 +404,9 @@ public class AdminController {
 
     // ===== 地点公告 =====
     @GetMapping("/location-notices")
-    public ResponseEntity<ApiResponse<List<LocationNotice>>> getLocationNotices() {
-        return ResponseEntity.ok(ApiResponse.success(announcementService.getLocationNotices()));
+    public ResponseEntity<ApiResponse<List<LocationNotice>>> getLocationNotices(
+            @RequestParam(required = false) String role) {
+        return ResponseEntity.ok(ApiResponse.success(announcementService.getLocationNotices(role)));
     }
 
     @GetMapping("/location-notice/active")
@@ -325,7 +423,8 @@ public class AdminController {
             LocationNotice notice = announcementService.publishLocationNotice(
                     request.get("location"),
                     request.get("notice"),
-                    operator
+                    operator,
+                    "ADMIN"
             );
             return ResponseEntity.ok(ApiResponse.success("发布成功", notice));
         } catch (Exception e) {
@@ -393,5 +492,41 @@ public class AdminController {
             return ResponseEntity.ok(ApiResponse.success(inventoryService.getRecordsByBook(bookId)));
         }
         return ResponseEntity.ok(ApiResponse.success(inventoryService.getAllRecords()));
+    }
+
+    // ===== 领取管理 =====
+    @GetMapping("/prize-exchanges")
+    public ResponseEntity<ApiResponse<List<PrizeExchangeDTO>>> getPrizeExchanges() {
+        List<PrizeExchange> exchanges = prizeService.getAllExchanges();
+        List<PrizeExchangeDTO> dtos = exchanges.stream().map(ex -> {
+            PrizeExchangeDTO dto = new PrizeExchangeDTO();
+            dto.setId(ex.getId());
+            dto.setStudentId(ex.getStudentId());
+            dto.setStudentName(ex.getStudentName());
+            dto.setPrizeId(ex.getPrizeId());
+            dto.setPrizeName(ex.getPrizeName());
+            dto.setPoints(ex.getPoints());
+            dto.setQuantity(ex.getQuantity());
+            dto.setStatus(ex.getStatus());
+            dto.setExchangeTime(ex.getExchangeTime());
+            dto.setPickupTime(ex.getPickupTime());
+            // 填充奖品图片
+            if (ex.getPrizeId() != null) {
+                prizeRepository.findById(ex.getPrizeId())
+                        .ifPresent(prize -> dto.setPrizeImageData(prize.getImageData()));
+            }
+            return dto;
+        }).toList();
+        return ResponseEntity.ok(ApiResponse.success(dtos));
+    }
+
+    @PutMapping("/prize-exchanges/{id}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmPrizePickup(@PathVariable Long id) {
+        try {
+            prizeService.confirmPickup(id);
+            return ResponseEntity.ok(ApiResponse.success("领取确认成功", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 }

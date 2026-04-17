@@ -21,6 +21,13 @@ public class AnnouncementService {
         return announcementRepository.findByOrderByPublishTimeDesc();
     }
 
+    public List<Announcement> getAnnouncementsByRole(String publisherRole) {
+        if (publisherRole == null || publisherRole.isEmpty()) {
+            return announcementRepository.findByOrderByPublishTimeDesc();
+        }
+        return announcementRepository.findByPublisherRoleOrderByPublishTimeDesc(publisherRole);
+    }
+
     public Announcement publishAnnouncement(String title, String content, String publisher, String publisherRole) {
         Announcement announcement = new Announcement();
         announcement.setTitle(title);
@@ -56,7 +63,11 @@ public class AnnouncementService {
         return locationNoticeRepository.findByIsActiveTrue().orElse(null);
     }
 
-    public LocationNotice publishLocationNotice(String location, String notice, String publisher) {
+    public LocationNotice getActiveLocationNoticeByRole(String publisherRole) {
+        return locationNoticeRepository.findByIsActiveTrueAndPublisherRole(publisherRole).orElse(null);
+    }
+
+    public LocationNotice publishLocationNotice(String location, String notice, String publisher, String publisherRole) {
         // 解码前端编码的 operatorName
         String decodedPublisher = publisher;
         try {
@@ -65,16 +76,18 @@ public class AnnouncementService {
             // 解码失败使用原始值
         }
         
-        List<LocationNotice> existing = locationNoticeRepository.findAll();
-        for (LocationNotice ln : existing) {
-            ln.setIsActive(false);
-            locationNoticeRepository.save(ln);
-        }
+        // 只禁用同角色的旧公告（管理员只覆盖管理员，后勤只覆盖后勤）
+        locationNoticeRepository.findByIsActiveTrueAndPublisherRole(publisherRole)
+                .ifPresent(old -> {
+                    old.setIsActive(false);
+                    locationNoticeRepository.save(old);
+                });
 
         LocationNotice newNotice = new LocationNotice();
         newNotice.setLocation(location);
         newNotice.setNotice(notice);
         newNotice.setPublisher(decodedPublisher);
+        newNotice.setPublisherRole(publisherRole);
         newNotice.setIsActive(true);
         newNotice.setPublishTime(LocalDateTime.now());
         return locationNoticeRepository.save(newNotice);
@@ -84,7 +97,10 @@ public class AnnouncementService {
         locationNoticeRepository.deleteById(id);
     }
 
-    public List<LocationNotice> getLocationNotices() {
-        return locationNoticeRepository.findAll();
+    public List<LocationNotice> getLocationNotices(String publisherRole) {
+        if (publisherRole == null || publisherRole.isEmpty()) {
+            return locationNoticeRepository.findAll();
+        }
+        return locationNoticeRepository.findByPublisherRoleOrderByPublishTimeDesc(publisherRole);
     }
 }

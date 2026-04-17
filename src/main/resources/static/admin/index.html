@@ -14,7 +14,7 @@
     <div class="nav-links">
         <a href="/admin/index.html" class="active">数据总览</a>
         <a href="/admin/profile.html">个人信息</a>
-        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/audit.html">领取管理</a>
         <a href="/admin/evaluate.html">评估核算</a>
         <a href="/admin/rule.html">积分规则</a>
         <a href="/admin/inventory-all.html">库存管理</a>
@@ -41,10 +41,6 @@
         <div class="stat-card">
             累计兑换
             <span id="totalExchanged">0</span>
-        </div>
-        <div class="stat-card">
-            待审核预约
-            <span id="pendingAppointments">0</span>
         </div>
     </div>
 
@@ -89,17 +85,6 @@
                 </div>
             </div>
 
-            <div class="warning-card warning-expiring">
-                <div class="warning-header">
-                    <span class="warning-icon">📅</span>
-                    <span class="warning-level">待审核预约</span>
-                </div>
-                <div class="warning-content" id="pendingAppointmentsList">
-                    <div class="warning-item">
-                        <span class="warning-book">暂无待审核预约</span>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </main>

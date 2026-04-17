@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface AnnouncementRepository extends JpaRepository<Announcement, Long> {
     List<Announcement> findByOrderByPublishTimeDesc();
+    List<Announcement> findByPublisherRoleOrderByPublishTimeDesc(String publisherRole);
 }

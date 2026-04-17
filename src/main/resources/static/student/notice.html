@@ -64,14 +64,33 @@
                 </div>
             </div>
 
-            <!-- 书籍缺货通知区域 -->
-            <div class="stock-warning-card">
-                <div class="card-header">
-                    <h3>⚠️ 库存预警通知</h3>
-                    <span class="badge warning-badge" id="stockWarningCount">0</span>
-                </div>
-                <div class="stock-list" id="stockWarningList">
-                    <!-- 动态生成缺货通知列表 -->
+            <!-- 库存预警区域 -->
+            <div class="warning-section">
+                <h3 class="warning-title">⚠️ 库存预警</h3>
+                <div class="warning-grid" id="lowStockWarningGrid">
+                    <div class="warning-card warning-zero">
+                        <div class="warning-header">
+                            <span class="warning-icon">⭕</span>
+                            <span class="warning-level">即将缺货</span>
+                        </div>
+                        <div class="warning-content" id="lowStockList">
+                            <div class="warning-item">
+                                <span class="warning-book">暂无数据</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="warning-card warning-expiring">
+                        <div class="warning-header">
+                            <span class="warning-icon">📅</span>
+                            <span class="warning-level">待审核预约</span>
+                        </div>
+                        <div class="warning-content" id="pendingAppointmentsList">
+                            <div class="warning-item">
+                                <span class="warning-book">暂无待审核预约</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -70,6 +70,7 @@ public class PrizeService {
 
         PrizeExchange exchange = new PrizeExchange();
         exchange.setStudentId(studentId);
+        exchange.setStudentName(userService.findById(studentId).map(User::getName).orElse("未知学生"));
         exchange.setPrizeId(prizeId);
         exchange.setPrizeName(prize.getName());
         exchange.setPoints(prize.getPoints());
@@ -81,7 +82,10 @@ public class PrizeService {
     }
 
     public List<PrizeExchange> getExchangesByStudent(Long studentId) {
-        return exchangeRepository.findByStudentIdOrderByExchangeTimeDesc(studentId);
+        return exchangeRepository.findAll().stream()
+                .filter(ex -> ex.getStudentId().equals(studentId) && "COMPLETED".equals(ex.getStatus()))
+                .sorted((a, b) -> b.getExchangeTime().compareTo(a.getExchangeTime()))
+                .toList();
     }
 
     public List<PrizeExchange> getAllExchanges() {

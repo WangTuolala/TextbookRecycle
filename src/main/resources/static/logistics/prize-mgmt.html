@@ -34,14 +34,6 @@
                 <span class="stat-value" id="totalCount">0</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">待领取</span>
-                <span class="stat-value" id="pendingCount">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">已领取</span>
-                <span class="stat-value" id="completedCount">0</span>
-            </div>
-            <div class="stat-item">
                 <span class="stat-label">最受欢迎</span>
                 <span class="stat-value" id="mostPopular">-</span>
             </div>
@@ -86,14 +78,14 @@
                 <input type="text" id="prizeName" placeholder="请输入奖品名称" required>
             </div>
             <div class="modal-field">
-                <label>奖品图片</label>
+                <label>奖品图片 <span class="required">*</span></label>
                 <div class="prize-upload-area">
                     <div class="prize-upload-preview" id="prizeUploadPreview">
                         <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23e1eff8' rx='10'/%3E%3Ctext x='40' y='45' text-anchor='middle' fill='%239ac2d9' font-size='14'%3E图片%3C/text%3E%3C/svg%3E" alt="奖品图片预览">
                     </div>
                     <div class="prize-upload-info">
                         <button type="button" class="btn-upload" onclick="document.getElementById('prizeImage').click()">选择图片</button>
-                        <input type="file" id="prizeImage" accept="image/*" class="file-input" style="display:none;">
+                        <input type="file" id="prizeImage" accept="image/*" class="file-input" style="display:none;" required>
                         <span class="upload-hint">建议尺寸：100*100px</span>
                     </div>
                 </div>
@@ -110,6 +102,46 @@
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" onclick="Modal.close('addPrizeModal')">取消</button>
                 <button type="submit" class="btn-primary" onclick="addNewPrize()">确认添加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑奖品弹窗 -->
+<div id="editPrizeModal" class="modal">
+    <div class="modal-content modal-md">
+        <span class="close-btn" onclick="Modal.close('editPrizeModal')">&times;</span>
+        <h3>✏️ 编辑奖品</h3>
+        <form id="editPrizeForm" onsubmit="return false;">
+            <input type="hidden" id="editPrizeId">
+            <div class="modal-field">
+                <label>奖品名称 <span class="required">*</span></label>
+                <input type="text" id="editPrizeName" placeholder="请输入奖品名称" required>
+            </div>
+            <div class="modal-field">
+                <label>奖品图片</label>
+                <div class="prize-upload-area">
+                    <div class="prize-upload-preview" id="editPrizePreview">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23e1eff8' rx='10'/%3E%3Ctext x='40' y='45' text-anchor='middle' fill='%239ac2d9' font-size='14'%3E图片%3C/text%3E%3C/svg%3E" alt="奖品图片预览">
+                    </div>
+                    <div class="prize-upload-info">
+                        <button type="button" class="btn-upload" onclick="document.getElementById('editPrizeImage').click()">重新上传</button>
+                        <input type="file" id="editPrizeImage" accept="image/*" class="file-input" style="display:none;">
+                        <span class="upload-hint">建议尺寸：100*100px（不选则保留原图）</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>所需积分 <span class="required">*</span></label>
+                <input type="number" id="editPrizePoints" placeholder="请输入所需积分" min="0" step="10" required>
+            </div>
+            <div class="modal-field">
+                <label>库存数量 <span class="required">*</span></label>
+                <input type="number" id="editPrizeStock" placeholder="请输入库存数量" min="0" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="Modal.close('editPrizeModal')">取消</button>
+                <button type="submit" class="btn-primary" onclick="saveEditPrize()">保存修改</button>
             </div>
         </form>
     </div>

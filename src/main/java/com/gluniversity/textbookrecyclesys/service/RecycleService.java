@@ -22,7 +22,10 @@ public class RecycleService {
     private final BookRepository bookRepository;
     private final InventoryRecordRepository inventoryRecordRepository;
     private final PointsRuleRepository pointsRuleRepository;
+    private final PrizeExchangeRepository prizeExchangeRepository;
+    private final BookExchangeRepository bookExchangeRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
 
     private static final AtomicInteger counter = new AtomicInteger(1);
 
@@ -68,6 +71,14 @@ public class RecycleService {
 
     public List<RecycleAppointment> getAppointmentsByStatus(String status) {
         return appointmentRepository.findByStatusOrderBySubmitTimeDesc(status);
+    }
+
+    public List<RecycleAppointment> searchAppointments(String keyword) {
+        return appointmentRepository.searchAppointments(keyword);
+    }
+
+    public List<Evaluation> searchEvaluations(String keyword) {
+        return evaluationRepository.searchEvaluations(keyword);
     }
 
     @Transactional
@@ -122,6 +133,16 @@ public class RecycleService {
                 .orElseThrow(() -> new RuntimeException("预约不存在"));
         appointment.setStatus("REJECTED");
         appointmentRepository.save(appointment);
+        
+        // 通知学生预约被拒绝
+        notificationService.createNotification(
+                appointment.getStudentId(),
+                appointment.getStudentName(),
+                "预约被拒绝",
+                "您提交的教材【" + appointment.getBookName() + "】信息有误，请重新填写后提交。",
+                "APPOINTMENT_REJECTED",
+                appointmentId
+        );
     }
 
     public List<Evaluation> getAllEvaluations() {
@@ -187,85 +208,61 @@ public class RecycleService {
     // ===== 图表统计数据 =====
     public Map<String, Object> getChartStats() {
         List<Evaluation> evaluations = evaluationRepository.findAll();
-        List<Book> books = bookRepository.findAll();
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime sixWeeksAgo = now.minusWeeks(6);
-        LocalDateTime sixMonthsAgo = now.minusMonths(6);
+        DateTimeFormatter dayFmt = DateTimeFormatter.ofPattern("MM-dd");
 
-        // 1. 教材回收量统计（近6周，每周数据）
-        List<Integer> weeklyRecycleData = new ArrayList<>();
-        List<String> weeklyLabels = new ArrayList<>();
-        for (int i = 5; i >= 0; i--) {
-            LocalDateTime weekStart = now.minusWeeks(i).with(java.time.DayOfWeek.MONDAY).toLocalDate().atStartOfDay();
-            LocalDateTime weekEnd = weekStart.plusDays(7);
-            int count = (int) evaluations.stream()
+        // 1. 教材回收量统计（近7天，每天数据）→ 折线图
+        List<Integer> dailyRecycleData = new ArrayList<>();
+        List<String> dailyLabels = new ArrayList<>();
+        for (int i = 6; i >= 0; i--) {
+            LocalDate day = now.minusDays(i).toLocalDate();
+            LocalDateTime dayStart = day.atStartOfDay();
+            LocalDateTime dayEnd = dayStart.plusDays(1);
+            long count = evaluations.stream()
                     .filter(e -> e.getEvaluateTime() != null)
                     .filter(e -> {
                         LocalDateTime t = e.getEvaluateTime();
-                        return !t.isBefore(weekStart) && t.isBefore(weekEnd);
+                        return !t.isBefore(dayStart) && t.isBefore(dayEnd);
                     })
                     .count();
-            weeklyRecycleData.add(count);
-            weeklyLabels.add("第" + (6 - i) + "周");
+            dailyRecycleData.add((int) count);
+            dailyLabels.add(day.format(dayFmt));
         }
 
-        // 2. 教材兑换率统计（按学科分类）
-        Map<String, Long> majorCount = books.stream()
-                .filter(b -> b.getMajor() != null && !b.getMajor().isEmpty())
-                .collect(Collectors.groupingBy(Book::getMajor, Collectors.counting()));
-        List<String> exchangeLabels = new ArrayList<>(majorCount.keySet());
-        List<Long> exchangeData = new ArrayList<>(majorCount.values());
-        
-        // 如果没有数据，显示默认
+        // 2. 教材兑换率统计（已完成兑换，按书籍名称分组）→ 饼图
+        List<BookExchange> bookExchanges = bookExchangeRepository.findAllByOrderByExchangeTimeDesc();
+        Map<String, Long> bookCount = bookExchanges.stream()
+                .filter(e -> e.getBookName() != null && !e.getBookName().isEmpty())
+                .collect(Collectors.groupingBy(BookExchange::getBookName, Collectors.counting()));
+        List<String> exchangeLabels = new ArrayList<>(bookCount.keySet());
+        List<Long> exchangeData = new ArrayList<>(bookCount.values());
         if (exchangeLabels.isEmpty()) {
-            exchangeLabels = List.of("暂无数据");
+            exchangeLabels = List.of("暂无兑换数据");
             exchangeData = List.of(0L);
         }
 
-        // 3. 学科分类统计（近6个月，每月每类数据）
-        List<String> monthLabels = new ArrayList<>();
-        List<String> allMajors = new ArrayList<>(new HashSet<>(
-                evaluations.stream()
-                        .filter(e -> e.getBookName() != null)
-                        .map(e -> {
-                            // 从书名推断学科（实际应该从book的major来，这里简化处理）
-                            return "通用";
-                        })
-                        .toList()
-        ));
-        if (allMajors.isEmpty()) allMajors.add("通用");
-        
-        // 按月统计
-        Map<String, Map<String, Integer>> monthlyMajorData = new LinkedHashMap<>();
-        for (int i = 5; i >= 0; i--) {
-            LocalDateTime monthStart = now.minusMonths(i).withDayOfMonth(1).toLocalDate().atStartOfDay();
-            LocalDateTime monthEnd = monthStart.plusMonths(1);
-            String monthLabel = (monthStart.getYear()) + "-" + String.format("%02d", monthStart.getMonthValue());
-            monthLabels.add(monthLabel);
-            
-            // 统计该月各学科评估数
-            Map<String, Integer> majorCounts = evaluations.stream()
-                    .filter(e -> e.getEvaluateTime() != null)
-                    .filter(e -> {
-                        LocalDateTime t = e.getEvaluateTime();
-                        return !t.isBefore(monthStart) && t.isBefore(monthEnd);
-                    })
-                    .collect(Collectors.groupingBy(e -> "通用", Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
-            
-            for (String major : allMajors) {
-                majorCounts.putIfAbsent(major, 0);
-            }
-            monthlyMajorData.put(monthLabel, majorCounts);
+        // 3. 热门教材统计（按评估量排名，取前5）→ 柱状图
+        Map<String, Long> bookEvalCount = evaluations.stream()
+                .filter(e -> e.getBookName() != null && !e.getBookName().isEmpty())
+                .collect(Collectors.groupingBy(Evaluation::getBookName, Collectors.counting()));
+        List<Map.Entry<String, Long>> topBooks = bookEvalCount.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(5)
+                .toList();
+        List<String> popularLabels = topBooks.stream().map(Map.Entry::getKey).toList();
+        List<Integer> popularData = topBooks.stream().map(e -> e.getValue().intValue()).toList();
+        if (popularLabels.isEmpty()) {
+            popularLabels = List.of("暂无数据");
+            popularData = List.of(0);
         }
 
         return Map.of(
-                "weeklyLabels", weeklyLabels,
-                "weeklyRecycleData", weeklyRecycleData,
+                "dailyLabels", dailyLabels,
+                "dailyRecycleData", dailyRecycleData,
                 "exchangeLabels", exchangeLabels,
                 "exchangeData", exchangeData,
-                "monthLabels", monthLabels,
-                "monthlyMajorData", monthlyMajorData,
-                "allMajors", allMajors
+                "popularLabels", popularLabels,
+                "popularData", popularData
         );
     }
 }

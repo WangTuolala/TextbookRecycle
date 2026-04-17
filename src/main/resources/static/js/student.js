@@ -58,15 +58,17 @@ function renderBookCards(books) {
 
     let html = '';
     sortedBooks.forEach(book => {
+        const isSoldOut = book.stock <= 0;
         const coverImg = book.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='150' viewBox='0 0 120 150'%3E%3Crect width='120' height='150' fill='%23d0e2f2'/%3E%3Ctext x='60' y='70' text-anchor='middle' fill='%231e6d8f' font-size='14'%3E教材%3C/text%3E%3C/svg%3E";
-        html += `<div class="book-card-full" data-id="${book.id}">
+        html += `<div class="book-card-full${isSoldOut ? ' sold-out' : ''}" data-id="${book.id}">
+            ${isSoldOut ? '<div class="sold-out-overlay">已售罄</div>' : ''}
             <div class="book-cover-full"><img src="${book.coverImage}" alt="${escapeHtml(book.name)}" class="book-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'150\' viewBox=\'0 0 120 150\'%3E%3Crect width=\'120\' height=\'150\' fill=\'%23d0e2f2\'/%3E%3Ctext x=\'60\' y=\'70\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'14\'%3E教材%3C/text%3E%3C/svg%3E'"></div>
             <div class="book-info-full">
                 <h3>${escapeHtml(book.name)}</h3>
                 <p>${escapeHtml(book.author || '')}</p>
                 <div class="book-major">📚 ${escapeHtml(book.major || '通用')}</div>
                 <div class="points-badge-full">${book.points} 积分</div>
-                <div class="stock-full">库存 ${book.stock} 本</div>
+                <div class="stock-full${isSoldOut ? ' stock-out' : ''}">${isSoldOut ? '已售罄' : '库存 ' + book.stock + ' 本'}</div>
             </div>
         </div>`;
     });
@@ -80,6 +82,7 @@ function bindBookCards() {
         card.setAttribute('data-bound', 'true');
         card.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+            if (card.classList.contains('sold-out')) return;
             const bookId = parseInt(card.getAttribute('data-id'));
             const book = window.currentBooks?.find(b => b.id === bookId);
             if (book) updateBookModal(book);
@@ -92,6 +95,7 @@ function updateBookModal(book) {
     document.getElementById('modalBookTitle').innerText = book.name;
     document.getElementById('modalMajor').innerText = book.major || '通用';
     document.getElementById('modalBookName').innerText = book.name;
+    document.getElementById('modalAuthor').innerText = book.author || '-';
     document.getElementById('modalIsbn').innerText = book.isbn || '-';
     document.getElementById('modalPublisher').innerText = book.publisher || '-';
     document.getElementById('modalCondition').innerText = book.condition || '-';
@@ -110,6 +114,34 @@ function updateBookModal(book) {
     exchangeBtn.setAttribute('data-book-stock', book.stock);
     exchangeBtn.setAttribute('data-book-points', book.points);
     exchangeBtn.setAttribute('data-book-name', book.name);
+    
+    // 根据库存设置按钮状态
+    if (book.stock <= 0) {
+        exchangeBtn.disabled = true;
+        exchangeBtn.innerText = '已售罄';
+    } else {
+        exchangeBtn.disabled = false;
+        exchangeBtn.innerText = '立即兑换';
+    }
+    
+    // 重置数量选择器
+    const quantitySelect = document.getElementById('exchangeQuantity');
+    if (quantitySelect) {
+        quantitySelect.innerHTML = '';
+        const maxQty = Math.min(book.stock, 5);
+        for (let i = 1; i <= maxQty; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i + ' 本';
+            quantitySelect.appendChild(opt);
+        }
+        if (maxQty === 0) {
+            const opt = document.createElement('option');
+            opt.value = 0;
+            opt.textContent = '无库存';
+            quantitySelect.appendChild(opt);
+        }
+    }
 }
 
 // ==================== 筛选功能 ====================
@@ -170,7 +202,29 @@ function resetHomeRecycleForm() {
     }
     const coverInput = document.getElementById('coverImage');
     if (coverInput) coverInput.value = '';
+    const ptsDisplay = document.getElementById('recyclePointsDisplay');
+    if (ptsDisplay) ptsDisplay.innerText = '—';
 }
+
+// 积分规则映射（从后端积分规则页面获取）
+window.recyclePointsRuleMap = { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+
+window.updateRecyclePoints = function() {
+    const condition = document.getElementById('condition')?.value;
+    const pts = window.recyclePointsRuleMap?.[condition] || 0;
+    const display = document.getElementById('recyclePointsDisplay');
+    if (display) {
+        if (condition) {
+            display.innerText = pts + ' 积分（参考值，实际以评估为准）';
+            display.style.color = '#1e6d8f';
+            display.style.fontWeight = '600';
+        } else {
+            display.innerText = '—';
+            display.style.color = '';
+            display.style.fontWeight = '';
+        }
+    }
+};
 
 async function addHomeRecycleRecord(bookData) {
     try {
@@ -194,17 +248,23 @@ function addToAppointmentTable(appointment) {
     const tbody = document.getElementById('appointmentTbody');
     if (!tbody) return;
 
-    const coverImgSrc = appointment.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='65' viewBox='0 0 50 65'%3E%3Crect width='50' height='65' fill='%23d0e2f2'/%3E%3Ctext x='25' y='35' text-anchor='middle' fill='%231e6d8f' font-size='10'%3E新书%3C/text%3E%3C/svg%3E";
+    const statusMap = {
+        'PENDING': '<span class="status-badge pending">待审核</span>',
+        'APPROVED': '<span class="status-badge approved">已通过</span>',
+        'REJECTED': '<span class="status-badge" style="background:#dc3545;color:white;">已拒绝</span>',
+        'COMPLETED': '<span class="status-badge completed">已完成</span>'
+    };
+    const coverImgSrc = appointment.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='65' viewBox='0 0 50 65'%3E%3Crect width='50' height='65' fill='%23d0e2f2'/%3E%3Ctext x='25' y='35' text-anchor='middle' fill='%231e6d8f' font-size='10'%3E教材%3C/text%3E%3C/svg%3E";
     
     const newRow = document.createElement('tr');
     newRow.setAttribute('data-status', appointment.status);
     newRow.innerHTML = `
-        <td class="record-cover"><img src="${coverImgSrc}" alt="封面" class="record-img" style="width:50px;height:65px;object-fit:cover;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'65\' viewBox=\'0 0 50 65\'%3E%3Crect width=\'50\' height=\'65\' fill=\'%23d0e2f2\'/%3E%3Ctext x=\'25\' y=\'35\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'10\'%3E新书%3C/text%3E%3C/svg%3E'"></td>
+        <td class="record-cover"><img src="${coverImgSrc}" alt="封面" class="record-img" style="width:50px;height:65px;object-fit:cover;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'65\' viewBox=\'0 0 50 65\'%3E%3Crect width=\'50\' height=\'65\' fill=\'%23d0e2f2\'/%3E%3Ctext x=\'25\' y=\'35\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'10\'%3E教材%3C/text%3E%3C/svg%3E'"></td>
         <td>${escapeHtml(appointment.bookName)}</td>
-        <td>${appointment.condition}</td>
+        <td>${appointment.condition || '-'}</td>
         <td>${appointment.quantity}</td>
         <td>${formatDate(appointment.submitTime)}</td>
-        <td><span class="status-badge pending">待审核</span></td>
+        <td>${statusMap[appointment.status] || '<span class="status-badge pending">待审核</span>'}</td>
         <td>—</td>
     `;
     tbody.insertBefore(newRow, tbody.firstChild);
@@ -272,6 +332,23 @@ function initHomeRecycleForm() {
         bindHomeRecycleFormSubmit();
         initHomeImagePreview();
         bindHomeModalCloseButtons();
+        // 加载积分规则
+        loadRecyclePointsRule();
+    }
+}
+
+async function loadRecyclePointsRule() {
+    try {
+        const result = await apiCall('/api/admin/points-rule', 'GET');
+        const rule = result.data || {};
+        window.recyclePointsRuleMap = {
+            '全新': rule.ruleNew || 200,
+            '良好': rule.ruleGood || 150,
+            '一般': rule.ruleNormal || 80,
+            '陈旧': rule.ruleOld || 40
+        };
+    } catch (e) {
+        window.recyclePointsRuleMap = { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
     }
 }
 
@@ -296,13 +373,19 @@ async function initPointsPage() {
                 document.getElementById('noDataMessage').style.display = 'none';
                 let html = '';
                 records.forEach(item => {
+                    const typeMap = {
+                        'RECYCLE': '回收得积分',
+                        'EXCHANGE': '兑换消费',
+                        'EVALUATE': '评估得积分',
+                        'SYNC': '积分同步'
+                    };
                     const pointsClass = item.points > 0 ? 'points-income' : 'points-expense';
                     const categoryClass = item.category === 'BOOK' ? 'category-badge book' : 'category-badge prize';
                     const categoryIcon = item.category === 'BOOK' ? '📚' : '🎁';
                     const categoryName = item.category === 'BOOK' ? '教材' : '奖品';
                     html += `<tr>
                         <td>${formatDate(item.createTime)}</td>
-                        <td>${item.type}</td>
+                        <td>${typeMap[item.type] || item.type || '-'}</td>
                         <td class="${pointsClass}">${item.points > 0 ? '+' : ''}${item.points}</td>
                         <td>${item.balance}</td>
                         <td>${escapeHtml(item.description || '')}</td>
@@ -445,67 +528,149 @@ async function initExchangePage() {
 }
 
 // ==================== 公告通知页面功能 ====================
+let previousAnnouncementCount = 0;
+let previousNoticeCount = 0;
+let previousAnnouncementIds = [];
+let previousNoticeIds = [];
+
 async function initNoticePage() {
     if (!document.querySelector('.notice-main-full')) return;
 
     try {
-        const [annResult, noticeResult, locationResult] = await Promise.all([
+        const [annResult, noticeResult, adminLocationResult, logisticsLocationResult] = await Promise.all([
             studentApiCall('/announcements', 'GET'),
             studentApiCall('/notices', 'GET'),
-            studentApiCall('/location-notice', 'GET')
+            studentApiCall('/location-notice/admin', 'GET'),
+            studentApiCall('/location-notice/logistics', 'GET')
         ]);
 
         const announcements = annResult.data || [];
         const notices = noticeResult.data || [];
-        const locationNotice = locationResult.data;
+        const adminLocation = adminLocationResult.data;
+        const logisticsLocation = logisticsLocationResult.data;
 
-        // 将 locationNotice 也加入到 noticeList 中显示为"领取须知"
-        const allNotices = [...notices];
-        if (locationNotice && locationNotice.id) {
-            allNotices.unshift({
-                id: locationNotice.id,
-                title: locationNotice.notice || '领取须知',
-                content: `领取地点：${locationNotice.location || '-'}\n发布人：${locationNotice.publisher || '-'}\n发布时间：${formatDate(locationNotice.publishTime)}`,
-                publishTime: locationNotice.publishTime,
+        // 分别构建系统公告列表和领取须知列表
+        const allNotices = [];
+        
+        // 管理员领取须知
+        if (adminLocation && adminLocation.id) {
+            allNotices.push({
+                id: 'admin-location',
+                title: '【管理员】领取须知',
+                location: adminLocation.location || '-',
+                notice: adminLocation.notice || '-',
+                publisher: adminLocation.publisher || '-',
+                publishTime: adminLocation.publishTime,
+                publisherRole: 'ADMIN',
+                isLocationNotice: true
+            });
+        }
+        
+        // 后勤领取须知
+        if (logisticsLocation && logisticsLocation.id) {
+            allNotices.push({
+                id: 'logistics-location',
+                title: '【后勤】领取须知',
+                location: logisticsLocation.location || '-',
+                notice: logisticsLocation.notice || '-',
+                publisher: logisticsLocation.publisher || '-',
+                publishTime: logisticsLocation.publishTime,
+                publisherRole: 'LOGISTICS',
                 isLocationNotice: true
             });
         }
 
-        const renderList = (containerId, data, type) => {
-            const container = document.getElementById(containerId);
+        // 检查是否有新公告（弹出提醒）
+        const currentAnnouncementIds = announcements.map(a => a.id);
+        const currentNoticeIds = allNotices.map(n => n.id);
+        
+        if (previousAnnouncementIds.length > 0) {
+            const newAnnouncements = announcements.filter(a => !previousAnnouncementIds.includes(a.id));
+            if (newAnnouncements.length > 0) {
+                showNewAnnouncementPopup(newAnnouncements[0]);
+            }
+        }
+        
+        previousAnnouncementIds = currentAnnouncementIds;
+        previousNoticeIds = currentNoticeIds;
+
+        const renderAnnouncementList = () => {
+            const container = document.getElementById('announcementList');
             if (!container) return;
-            if (data.length === 0) {
+            if (announcements.length === 0) {
                 container.innerHTML = '<div class="list-item" style="justify-content: center;">暂无数据</div>';
                 return;
             }
             let html = '';
-            data.forEach((item, index) => {
-                html += `<div class="list-item" data-type="${type}" data-index="${index}">
-                    <span class="list-title">${item.title}</span>
-                    <span class="list-date">${formatDate(item.publishTime || item.createTime)}</span>
+            announcements.forEach((item) => {
+                html += `<div class="list-item" data-type="announcement" data-id="${item.id}">
+                    <span class="list-title">${escapeHtml(item.title || '')}</span>
+                    <span class="list-date">${formatDate(item.publishTime)}</span>
                 </div>`;
             });
             container.innerHTML = html;
             
-            document.querySelectorAll(`#${containerId} .list-item`).forEach(item => {
+            container.querySelectorAll('.list-item').forEach(item => {
                 item.addEventListener('click', () => {
                     document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-                    const idx = parseInt(item.getAttribute('data-index'));
-                    // 根据类型选择正确的数据数组
-                    const dataArray = type === 'announcement' ? announcements : allNotices;
-                    const d = dataArray[idx];
+                    const id = parseInt(item.getAttribute('data-id'));
+                    const d = announcements.find(a => a.id === id);
                     if (d) {
-                        document.getElementById('detailTitle').innerText = d.title;
-                        document.getElementById('detailDate').innerText = formatDate(d.publishTime || d.createTime);
-                        document.getElementById('detailContent').innerHTML = (d.content || '').replace(/\n/g, '<br>');
+                        // 保留"公告详情"标题，显示系统公告的详细内容
+                        document.getElementById('detailTitle').innerText = '公告详情';
+                        document.getElementById('detailDate').innerText = formatDate(d.publishTime);
+                        document.getElementById('detailContent').innerHTML = `
+                            <div class="detail-announcement-title">${escapeHtml(d.title || '')}</div>
+                            <div class="detail-meta">发布人：${escapeHtml(d.publisher || '-')} &nbsp;&nbsp;发布时间：${formatDate(d.publishTime)}</div>
+                            <div class="detail-body">${(d.content || '').replace(/\n/g, '<br>')}</div>
+                        `;
                     }
                 });
             });
         };
 
-        renderList('announcementList', announcements, 'announcement');
-        renderList('noticeList', allNotices, 'notice');
+        const renderNoticeList = () => {
+            const container = document.getElementById('noticeList');
+            if (!container) return;
+            if (allNotices.length === 0) {
+                container.innerHTML = '<div class="list-item" style="justify-content: center;">暂无数据</div>';
+                return;
+            }
+            let html = '';
+            allNotices.forEach((item) => {
+                html += `<div class="list-item" data-type="notice" data-id="${item.id}">
+                    <span class="list-title">${escapeHtml(item.title || '')}</span>
+                    <span class="list-date">${formatDate(item.publishTime)}</span>
+                </div>`;
+            });
+            container.innerHTML = html;
+            
+            container.querySelectorAll('.list-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                    const id = item.getAttribute('data-id');
+                    const d = allNotices.find(n => n.id === id);
+                    if (d) {
+                        // 保留"公告详情"标题，显示领取须知的详细内容
+                        document.getElementById('detailTitle').innerText = '公告详情';
+                        document.getElementById('detailDate').innerText = formatDate(d.publishTime);
+                        document.getElementById('detailContent').innerHTML = `
+                            <div class="detail-announcement-title">${escapeHtml(d.title || '')}</div>
+                            <div class="detail-meta">发布人：${escapeHtml(d.publisher || '-')} &nbsp;&nbsp;发布时间：${formatDate(d.publishTime)}</div>
+                            <div class="detail-body">
+                                <p><strong>领取地点：</strong>${escapeHtml(d.location || '-')}</p>
+                                <p><strong>注意事项：</strong>${(d.notice || '-').replace(/\n/g, '<br>')}</p>
+                            </div>
+                        `;
+                    }
+                });
+            });
+        };
+
+        renderAnnouncementList();
+        renderNoticeList();
 
         if (document.getElementById('announcementCount')) {
             document.getElementById('announcementCount').innerText = announcements.length;
@@ -514,21 +679,40 @@ async function initNoticePage() {
             document.getElementById('noticeCount').innerText = allNotices.length;
         }
 
-        // Stock warnings
+        // 库存预警（与管理员数据总览一致）
         try {
-            const booksResult = await studentApiCall('/books', 'GET');
+            const [booksResult, appointmentsResult] = await Promise.all([
+                studentApiCall('/books', 'GET'),
+                studentApiCall('/appointments', 'GET')
+            ]);
+
+            // 卡片1：即将缺货
             const lowStockBooks = (booksResult.data || []).filter(b => b.stock <= 3);
-            const warningCount = document.getElementById('stockWarningCount');
-            const warningList = document.getElementById('stockWarningList');
-            if (warningCount) warningCount.innerText = lowStockBooks.length;
-            if (warningList) {
+            const lowStockList = document.getElementById('lowStockList');
+            if (lowStockList) {
                 if (lowStockBooks.length === 0) {
-                    warningList.innerHTML = '<div class="list-item" style="justify-content: center;">暂无库存预警</div>';
+                    lowStockList.innerHTML = '<div class="warning-item"><span class="warning-book">暂无数据</span></div>';
                 } else {
-                    warningList.innerHTML = lowStockBooks.map(b => 
-                        `<div class="stock-item">
-                            <span class="stock-name">${escapeHtml(b.name)}</span>
-                            <span class="stock-status ${b.stock === 0 ? 'out' : 'low'}">${b.stock === 0 ? '已缺货' : `库存不足 (仅剩${b.stock}本)`}</span>
+                    lowStockList.innerHTML = lowStockBooks.map(b =>
+                        `<div class="warning-item">
+                            <span class="warning-book">${escapeHtml(b.name)}</span>
+                            <span class="stock-status ${b.stock === 0 ? 'out' : 'low'}">${b.stock === 0 ? '已缺货' : `仅剩${b.stock}本`}</span>
+                        </div>`
+                    ).join('');
+                }
+            }
+
+            // 卡片2：待审核预约
+            const pendingAppointments = (appointmentsResult.data || []).filter(a => a.status === 'PENDING');
+            const pendingList = document.getElementById('pendingAppointmentsList');
+            if (pendingList) {
+                if (pendingAppointments.length === 0) {
+                    pendingList.innerHTML = '<div class="warning-item"><span class="warning-book">暂无待审核预约</span></div>';
+                } else {
+                    pendingList.innerHTML = pendingAppointments.slice(0, 5).map(a =>
+                        `<div class="warning-item">
+                            <span class="warning-book">${escapeHtml(a.bookName || '')}</span>
+                            <span class="pending-tag">待审核</span>
                         </div>`
                     ).join('');
                 }
@@ -539,6 +723,44 @@ async function initNoticePage() {
         console.error('加载通知信息失败:', error);
     }
 }
+
+// 新公告弹窗提醒
+function showNewAnnouncementPopup(announcement) {
+    const popup = document.createElement('div');
+    popup.className = 'announcement-popup';
+    popup.innerHTML = `
+        <div class="popup-header">📢 新公告</div>
+        <div class="popup-body">
+            <div class="popup-title">${escapeHtml(announcement.title || '')}</div>
+            <div class="popup-content">${(announcement.content || '').substring(0, 100)}${(announcement.content || '').length > 100 ? '...' : ''}</div>
+        </div>
+        <button class="popup-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    popup.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    document.body.appendChild(popup);
+    
+    // 5秒后自动消失
+    setTimeout(() => {
+        if (popup.parentElement) popup.remove();
+    }, 5000);
+}
+
+// 轮询检查新公告（每30秒）
+setInterval(() => {
+    if (document.querySelector('.notice-main-full')) {
+        initNoticePage();
+    }
+}, 30000);
 
 // ==================== 个人信息页面功能 ====================
 async function initProfilePage() {
@@ -558,8 +780,8 @@ async function initProfilePage() {
         window.currentProfile = profile;
         
         // Fill profile fields (display only - span elements)
-        const fields = ['displayName', 'displayCollege', 'displayMajor', 'displayClass', 'displayYear', 'displayPhone'];
-        const values = [profile.name, profile.college, profile.major, profile.className, profile.entryYear ? profile.entryYear + '年' : '-', profile.phone];
+        const fields = ['displayName', 'displayCollege', 'displayMajor', 'displayClass', 'displayPhone'];
+        const values = [profile.name, profile.college, profile.major, profile.className, profile.phone];
         fields.forEach((id, i) => {
             const el = document.getElementById(id);
             if (el) el.innerText = values[i] || '-';
@@ -685,32 +907,60 @@ async function initRecycleRecordsPage() {
                         <td>${app.quantity}</td>
                         <td>${formatDate(app.submitTime)}</td>
                         <td>${statusMap[app.status] || app.status}</td>
-                        <td>${app.status === 'COMPLETED' ? '+' + (app.points || 0) : '—'}</td>
+                        <td>${app.status === 'REJECTED' ? '—' : '<span class="points-earned">+' + ((window.recyclePointsRuleMap?.[app.condition] || 0) * (app.quantity || 1)) + '</span>'}</td>
                     </tr>`;
                 }).join('');
             }
         }
 
         // Render exchange table
+        const recycles = pointsResult.data?.recycles || [];
+
+        // 合并奖品兑换和教材兑换
+        const allExchanges = [
+            ...exchanges.map(ex => ({ ...ex, _type: 'prize' })),
+            ...recycles.map(r => ({ ...r, _type: 'book' }))
+        ].sort((a, b) => {
+            const timeA = a.exchangeTime || a.evaluateTime || '';
+            const timeB = b.exchangeTime || b.evaluateTime || '';
+            return timeB.localeCompare(timeA);
+        });
+
         const exchangeTbody = document.getElementById('exchangeTbody');
-        if (exchangeTbody && exchanges.length > 0) {
-            exchangeTbody.innerHTML = exchanges.map(ex => {
-                const statusMap = {
-                    'PENDING': '<span class="status-badge pending">待领取</span>',
-                    'COMPLETED': '<span class="status-badge completed">已领取</span>'
-                };
-                return `<tr data-status="${ex.status}">
-                    <td class="record-cover">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='65' viewBox='0 0 50 65'%3E%3Crect width='50' height='65' fill='%23e1d5e7'/%3E%3Ctext x='25' y='35' text-anchor='middle' fill='%231e6d8f' font-size='10'%3E奖品%3C/text%3E%3C/svg%3E" alt="奖品" class="record-img">
-                    </td>
-                    <td>${escapeHtml(ex.prizeName || '')}</td>
-                    <td>奖品</td>
-                    <td>${ex.quantity}</td>
-                    <td>${formatDate(ex.exchangeTime)}</td>
-                    <td>${statusMap[ex.status] || ex.status}</td>
-                    <td>${ex.points}</td>
-                </tr>`;
-            }).join('');
+        if (exchangeTbody) {
+            if (allExchanges.length === 0) {
+                exchangeTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;">暂无兑换记录</td></tr>';
+            } else {
+                exchangeTbody.innerHTML = allExchanges.map(ex => {
+                    const isBook = ex._type === 'book';
+                    const statusMap = {
+                        'PENDING': '<span class="status-badge pending">待领取</span>',
+                        'COMPLETED': '<span class="status-badge completed">已领取</span>',
+                        'LISTED': '<span class="status-badge listed">已上架</span>',
+                        'SYNCED': '<span class="status-badge approved">已同步</span>',
+                        'APPROVED': '<span class="status-badge approved">已通过</span>',
+                        'DELISTED': '<span class="status-badge delisted">已下架</span>'
+                    };
+                    const name = isBook ? (ex.bookName || '-') : (ex.prizeName || '-');
+                    const qty = ex.quantity || 1;
+                    const pts = isBook ? (ex.points || 0) : (ex.points || 0);
+                    const time = formatDate(isBook ? (ex.evaluateTime || ex.submitTime) : ex.exchangeTime);
+                    const img = isBook
+                        ? (ex.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='65' viewBox='0 0 50 65'%3E%3Crect width='50' height='65' fill='%23d0e2f2'/%3E%3Ctext x='25' y='35' text-anchor='middle' fill='%231e6d8f' font-size='10'%3E教材%3C/text%3E%3C/svg%3E")
+                        : ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='65' viewBox='0 0 50 65'%3E%3Crect width='50' height='65' fill='%23e1d5e7'/%3E%3Ctext x='25' y='35' text-anchor='middle' fill='%231e6d8f' font-size='10'%3E奖品%3C/text%3E%3C/svg%3E");
+                    return `<tr data-status="${ex.status}">
+                        <td class="record-cover">
+                            <img src="${img}" alt="" class="record-img" style="width:50px;height:65px;object-fit:cover;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'65\' viewBox=\'0 0 50 65\'%3E%3Crect width=\'50\' height=\'65\' fill=\'%23e1d5e7\'/%3E%3Ctext x=\'25\' y=\'35\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'10\'%3E奖品%3C/text%3E%3C/svg%3E'">
+                        </td>
+                        <td>${escapeHtml(name)}</td>
+                        <td>${isBook ? '<span class="type-tag type-book">教材</span>' : '<span class="type-tag type-prize">奖品</span>'}</td>
+                        <td>${qty}</td>
+                        <td>${time}</td>
+                        <td>${statusMap[ex.status] || ex.status}</td>
+                        <td>${pts}</td>
+                    </tr>`;
+                }).join('');
+            }
         }
 
         const tabs = document.querySelectorAll('.records-tabs .tab-btn');
@@ -839,15 +1089,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const bookName = exchangeBtn.getAttribute('data-book-name');
             const bookPoints = parseInt(exchangeBtn.getAttribute('data-book-points'));
             const bookStock = parseInt(exchangeBtn.getAttribute('data-book-stock'));
+            const quantitySelect = document.getElementById('exchangeQuantity');
+            const quantity = parseInt(quantitySelect?.value || '1');
             
             if (bookStock <= 0) {
                 alert('库存不足！');
                 return;
             }
-            if (confirm(`确定要兑换《${bookName}》吗？需要 ${bookPoints} 积分。`)) {
+            const totalPoints = bookPoints * quantity;
+            if (confirm(`确定要兑换《${bookName}》× ${quantity} 本吗？需要 ${totalPoints} 积分。`)) {
                 try {
-                    await studentApiCall('/prizes/exchange', 'POST', { prizeId: bookId, quantity: 1 });
-                    alert(`兑换成功！《${bookName}》已兑换，请前往教材管理中心领取。`);
+                    await studentApiCall('/books/exchange', 'POST', { bookId: bookId, quantity: quantity });
+                    alert(`兑换成功！《${bookName}》× ${quantity} 本已兑换，请前往教材管理中心领取。`);
                     Modal.close('bookModal');
                     loadBooks();
                 } catch (error) {

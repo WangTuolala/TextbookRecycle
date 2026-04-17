@@ -91,7 +91,7 @@
                 </div>
                 <div class="form-group">
                     <label>⭐ 品相预估 <span class="required">*</span></label>
-                    <select id="condition" required>
+                    <select id="condition" required onchange="updateRecyclePoints()">
                         <option value="">请选择品相</option>
                         <option value="全新">全新（未使用，无任何痕迹）</option>
                         <option value="良好">良好（少量笔记，整体干净）</option>
@@ -107,7 +107,8 @@
                     <input type="number" id="quantity" value="1" min="1" max="10" required>
                 </div>
                 <div class="form-group">
-                    <!-- 空占位，保持布局 -->
+                    <label>🎯 预估积分</label>
+                    <div class="recycle-points-hint" id="recyclePointsDisplay">—</div>
                 </div>
             </div>
 
@@ -168,6 +169,10 @@
                         <span class="meta-value" id="modalBookName">高等数学（第七版）</span>
                     </div>
                     <div class="meta-row">
+                        <span class="meta-label">✍️ 作者</span>
+                        <span class="meta-value" id="modalAuthor">-</span>
+                    </div>
+                    <div class="meta-row">
                         <span class="meta-label">🔢 ISBN</span>
                         <span class="meta-value" id="modalIsbn">978-7-04-0123456</span>
                     </div>
@@ -190,6 +195,17 @@
                         <div class="stat-label">库存数量</div>
                         <div class="stat-value stock-value" id="modalStock">3 本</div>
                     </div>
+                </div>
+
+                <div class="book-detail-quantity">
+                    <label for="exchangeQuantity">兑换数量：</label>
+                    <select id="exchangeQuantity">
+                        <option value="1">1 本</option>
+                        <option value="2">2 本</option>
+                        <option value="3">3 本</option>
+                        <option value="4">4 本</option>
+                        <option value="5">5 本</option>
+                    </select>
                 </div>
 
                 <div class="book-detail-actions">

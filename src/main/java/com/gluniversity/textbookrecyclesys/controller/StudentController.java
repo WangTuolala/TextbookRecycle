@@ -18,6 +18,7 @@ public class StudentController {
     private final RecycleService recycleService;
     private final PrizeService prizeService;
     private final AnnouncementService announcementService;
+    private final NotificationService notificationService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<User>> register(@RequestBody RegisterRequest request) {
@@ -139,6 +140,20 @@ public class StudentController {
         }
     }
 
+    @PostMapping("/books/exchange")
+    public ResponseEntity<ApiResponse<Book>> exchangeBook(
+            @RequestBody Map<String, Object> request,
+            @RequestHeader("X-User-Id") Long studentId) {
+        try {
+            Long bookId = Long.valueOf(request.get("bookId").toString());
+            Integer quantity = Integer.valueOf(request.getOrDefault("quantity", 1).toString());
+            Book book = bookService.exchangeBook(studentId, bookId, quantity, userService);
+            return ResponseEntity.ok(ApiResponse.success("兑换成功", book));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @GetMapping("/announcements")
     public ResponseEntity<ApiResponse<List<Announcement>>> getAnnouncements() {
         return ResponseEntity.ok(ApiResponse.success(announcementService.getAllAnnouncements()));
@@ -152,6 +167,16 @@ public class StudentController {
     @GetMapping("/location-notice")
     public ResponseEntity<ApiResponse<LocationNotice>> getLocationNotice() {
         return ResponseEntity.ok(ApiResponse.success(announcementService.getActiveLocationNotice()));
+    }
+
+    @GetMapping("/location-notice/admin")
+    public ResponseEntity<ApiResponse<LocationNotice>> getAdminLocationNotice() {
+        return ResponseEntity.ok(ApiResponse.success(announcementService.getActiveLocationNoticeByRole("ADMIN")));
+    }
+
+    @GetMapping("/location-notice/logistics")
+    public ResponseEntity<ApiResponse<LocationNotice>> getLogisticsLocationNotice() {
+        return ResponseEntity.ok(ApiResponse.success(announcementService.getActiveLocationNoticeByRole("LOGISTICS")));
     }
 
     @GetMapping("/profile")
@@ -171,5 +196,25 @@ public class StudentController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    @GetMapping("/notifications")
+    public ResponseEntity<ApiResponse<List<Notification>>> getMyNotifications(
+            @RequestHeader("X-User-Id") Long studentId) {
+        List<Notification> notifications = notificationService.getNotificationsByStudentId(studentId);
+        return ResponseEntity.ok(ApiResponse.success(notifications));
+    }
+
+    @GetMapping("/notifications/unread")
+    public ResponseEntity<ApiResponse<List<Notification>>> getUnreadNotifications(
+            @RequestHeader("X-User-Id") Long studentId) {
+        List<Notification> notifications = notificationService.getUnreadNotifications(studentId);
+        return ResponseEntity.ok(ApiResponse.success(notifications));
+    }
+
+    @PutMapping("/notifications/{id}/read")
+    public ResponseEntity<ApiResponse<Void>> markNotificationAsRead(@PathVariable Long id) {
+        notificationService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.success("已读", null));
     }
 }

@@ -22,6 +22,9 @@ public class LocationNotice {
     private String publisher;
     
     @Column(nullable = false)
+    private String publisherRole; // ADMIN 或 LOGISTICS
+    
+    @Column(nullable = false)
     private Boolean isActive = true;
     
     private LocalDateTime publishTime = LocalDateTime.now();

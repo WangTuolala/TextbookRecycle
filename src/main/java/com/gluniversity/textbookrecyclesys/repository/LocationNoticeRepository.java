@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface LocationNoticeRepository extends JpaRepository<LocationNotice, Long> {
     Optional<LocationNotice> findByIsActiveTrue();
+    Optional<LocationNotice> findByIsActiveTrueAndPublisherRole(String publisherRole);
+    java.util.List<LocationNotice> findByPublisherRoleOrderByPublishTimeDesc(String publisherRole);
 }

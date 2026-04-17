@@ -1615,3 +1615,61 @@
     min-width: 100px;
     text-align: center;
 }
+
+/* 书籍新增表单 */
+.points-auto-display {
+    padding: 8px 12px;
+    background: #e8f4f8;
+    border: 2px solid #1e6d8f;
+    border-radius: 8px;
+    color: #1e6d8f;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+.cover-preview {
+    margin-top: 8px;
+    min-height: 60px;
+}
+
+/* 书籍管理表格 */
+.book-name-cell {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.action-cell {
+    white-space: nowrap;
+}
+
+.action-cell .btn-sm {
+    margin-right: 4px;
+}
+
+.condition-tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.condition-tag.condition-new { background: #e6f4ea; color: #1e7e34; }
+.condition-tag.condition-good { background: #e3f2fd; color: #1565c0; }
+.condition-tag.condition-normal { background: #fff8e1; color: #f57f17; }
+.condition-tag.condition-old { background: #fce4ec; color: #c62828; }
+
+.btn-delist {
+    background: #f0ad4e !important;
+    color: white !important;
+    border: none;
+}
+
+.btn-relist {
+    background: #28a745 !important;
+    color: white !important;
+    border: none;
+}

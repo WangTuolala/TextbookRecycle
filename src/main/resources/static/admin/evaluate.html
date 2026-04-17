@@ -13,7 +13,7 @@
     <div class="nav-links">
         <a href="/admin/index.html">数据总览</a>
         <a href="/admin/profile.html">个人信息</a>
-        <a href="/admin/audit.html">回收审核</a>
+        <a href="/admin/audit.html">领取管理</a>
         <a href="/admin/evaluate.html" class="active">评估核算</a>
         <a href="/admin/rule.html">积分规则</a>
         <a href="/admin/inventory-all.html">库存管理</a>
@@ -33,6 +33,13 @@
     <h2 class="evaluate-title">⚖️ 教材评估与积分核算</h2>
     <p class="evaluate-subtitle">根据品相标准核算积分，审核通过后同步至库存</p>
 
+    <div class="pickup-stats" style="margin-bottom:16px;">
+        <span class="stat-badge">总计: <strong id="evalTotal">0</strong> 条</span>
+        <span class="stat-badge pending-badge">待审核: <strong id="evalPending">0</strong></span>
+        <span class="stat-badge approved-badge">已审核: <strong id="evalApproved">0</strong></span>
+        <span class="stat-badge completed-badge">已完成: <strong id="evalCompleted">0</strong></span>
+    </div>
+
     <!-- 搜索和筛选栏 - 靠右 -->
     <div class="evaluate-filters-right">
         <div class="filter-group">
@@ -43,7 +50,6 @@
                 <option value="APPROVED">已通过</option>
                 <option value="LISTED">已上架</option>
                 <option value="DELISTED">已下架</option>
-                <option value="SYNCED">已同步</option>
             </select>
         </div>
         <div class="filter-group">

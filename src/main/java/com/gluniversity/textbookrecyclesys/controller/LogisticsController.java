@@ -129,8 +129,9 @@ public class LogisticsController {
 
     // ===== 地点公告 =====
     @GetMapping("/location-notices")
-    public ResponseEntity<ApiResponse<List<LocationNotice>>> getLocationNotices() {
-        return ResponseEntity.ok(ApiResponse.success(announcementService.getLocationNotices()));
+    public ResponseEntity<ApiResponse<List<LocationNotice>>> getLocationNotices(
+            @RequestParam(required = false) String role) {
+        return ResponseEntity.ok(ApiResponse.success(announcementService.getLocationNotices(role)));
     }
 
     @GetMapping("/location-notice/active")
@@ -147,7 +148,8 @@ public class LogisticsController {
             LocationNotice notice = announcementService.publishLocationNotice(
                     request.get("location"),
                     request.get("notice"),
-                    operator
+                    operator,
+                    "LOGISTICS"
             );
             return ResponseEntity.ok(ApiResponse.success("发布成功", notice));
         } catch (Exception e) {

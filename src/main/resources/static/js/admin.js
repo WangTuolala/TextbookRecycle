@@ -1,7 +1,12 @@
 const ADMIN_API = '/admin';
 
 async function adminApiCall(endpoint, method, body) {
-    return apiCall(ADMIN_API + endpoint, method, body);
+    const headers = {};
+    try {
+        const u = getCurrentUser();
+        if (u && u.id) headers['X-User-Id'] = u.id;
+    } catch(e) {}
+    return apiCall(ADMIN_API + endpoint, method, body, headers);
 }
 
 // ==================== 公告通知页面初始化 ====================
@@ -25,7 +30,7 @@ async function loadAnnouncements() {
 
 async function loadLocationNotices() {
     try {
-        const result = await adminApiCall('/location-notices', 'GET');
+        const result = await adminApiCall('/location-notices?role=ADMIN', 'GET');
         window.adminLocationNotices = result.data || [];
         renderLocationHistory();
     } catch (error) {
@@ -77,13 +82,12 @@ function renderAnnouncementHistory(searchTerm) {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无公告记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">暂无公告记录</td></tr>';
         return;
     }
 
-    tbody.innerHTML = filtered.map((item, index) => `
+    tbody.innerHTML = filtered.map((item) => `
         <tr>
-            <td style="text-align: center;">${index + 1}</td>
             <td style="text-align: left;">${escapeHtml(item.title)}</td>
             <td style="text-align: left;">${escapeHtml((item.content || '').substring(0, 100))}...</td>
             <td style="text-align: center;">${formatDate(item.publishTime)}</td>
@@ -104,15 +108,14 @@ function renderLocationHistory(searchTerm) {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">暂无记录</td></tr>';
         return;
     }
 
-    tbody.innerHTML = filtered.map((item, index) => {
+    tbody.innerHTML = filtered.map((item) => {
         const statusClass = item.isActive ? 'status-active' : 'status-inactive';
         const statusText = item.isActive ? '✅ 当前生效' : '📄 历史版本';
         return `<tr>
-            <td style="text-align: center;">${index + 1}</td>
             <td style="text-align: left;">${escapeHtml(item.location)}</td>
             <td style="text-align: left;">${escapeHtml((item.notice || '').substring(0, 80))}...</td>
             <td style="text-align: center;">${formatDate(item.publishTime)}</td>
@@ -169,7 +172,7 @@ function resetAnnouncementForm() {
     if (contentInput) contentInput.value = '';
 }
 
-// ==================== 回收审核页面功能 ====================
+// ==================== 领取管理页面功能 ====================
 async function initAuditPage() {
     if (!document.querySelector('.audit-page')) return;
     await loadPickupList();
@@ -177,60 +180,48 @@ async function initAuditPage() {
 
 async function loadPickupList() {
     try {
-        const result = await adminApiCall('/appointments?status=PENDING', 'GET');
-        window.pendingAppointments = result.data || [];
-        renderPickupTable(window.pendingAppointments);
+        const result = await adminApiCall('/book-exchanges', 'GET');
+        window.allExchanges = result.data || [];
+        renderPickupTable(window.allExchanges);
         updatePickupStats();
     } catch (error) {
-        console.error('加载预约列表失败:', error);
+        console.error('加载领取记录失败:', error);
     }
 }
 
-function renderPickupTable(appointments) {
+function renderPickupTable(exchanges) {
     const tbody = document.getElementById('pickupBody');
     if (!tbody) return;
 
-    if (appointments.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">暂无待审核预约</td></tr>';
+    if (exchanges.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">暂无领取记录</td></tr>';
         return;
     }
 
-    tbody.innerHTML = appointments.map((app, index) => `
-        <tr data-status="${app.status}" data-student="${app.studentName || ''}" data-book="${app.bookName || ''}">
-            <td style="text-align: center;">${index + 1}</td>
-            <td>📋 ${app.appointmentId || '-'}</td>
-            <td class="student-name-cell" onclick="viewStudentInfo('${app.studentUsername || app.studentId}', '${app.studentName}')">
-                ${app.studentName || '-'}
-                <br><small>${app.studentUsername || app.studentId || '-'}</small>
-            </td>
-            <td style="text-align: left;">${escapeHtml(app.bookName || '-')}</td>
-            <td>${app.condition || '-'}</td>
-            <td>${app.quantity || 1}</td>
-            <td><span class="status-badge pending">待审核</span></td>
-            <td>
-                <button class="btn-sm btn-pass" onclick="confirmPickup(${app.id})">通过</button>
-                <button class="btn-sm" style="background:#dc3545;color:white;" onclick="rejectAppointment(${app.id})">拒绝</button>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = exchanges.map(ex => {
+        const statusLabel = ex.status === 'PENDING' ? '待领取' : '已领取';
+        const statusClass = ex.status === 'PENDING' ? 'pending' : 'completed';
+        const time = ex.exchangeTime ? formatDateTime(ex.exchangeTime) : '-';
+        const confirmBtn = ex.status === 'PENDING'
+            ? '<button class="btn-sm btn-pass" onclick="confirmBookPickup(' + ex.id + ')">确认领取</button>'
+            : '-';
+        const sName = ex.studentName ? ex.studentName.replace(/'/g, "\'") : '';
+        return '<tr data-status="' + (ex.status||'') + '" data-student="' + sName + '">' +
+            '<td class="student-name-cell" onclick="viewStudentInfo(\'' + ex.studentId + '\',\'' + sName + '\')">' + escapeHtml(ex.studentName || '-') + '</td>' +
+            '<td style="text-align:center;"><span style="font-size:24px;">📚</span></td>' +
+            '<td>' + escapeHtml(ex.bookName || '-') + '</td>' +
+            '<td>' + (ex.pointsCost || 0) + '</td>' +
+            '<td>' + time + '</td>' +
+            '<td><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>' +
+            '<td>' + confirmBtn + '</td></tr>';
+    }).join('');
 }
 
-async function confirmPickup(id) {
-    if (!confirm('确认通过该预约吗？')) return;
+async function confirmBookPickup(id) {
+    if (!confirm('确认该学生已领取教材？')) return;
     try {
-        await adminApiCall(`/appointments/${id}/approve`, 'POST');
-        alert('已通过审核');
-        await loadPickupList();
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-async function rejectAppointment(id) {
-    if (!confirm('确认拒绝该预约吗？')) return;
-    try {
-        await adminApiCall(`/appointments/${id}/reject`, 'POST');
-        alert('已拒绝该预约');
+        await adminApiCall('/book-exchanges/' + id + '/confirm', 'PUT');
+        alert('领取确认成功');
         await loadPickupList();
     } catch (error) {
         alert(error.message);
@@ -238,43 +229,35 @@ async function rejectAppointment(id) {
 }
 
 function updatePickupStats() {
-    const rows = document.querySelectorAll('#pickupBody tr');
-    let pending = 0, completed = 0;
-    rows.forEach(row => {
-        const status = row.getAttribute('data-status');
-        if (status === 'PENDING') pending++;
-        else if (status === 'COMPLETED') completed++;
-    });
+    const all = window.allExchanges || [];
+    const pending = all.filter(e => e.status === 'PENDING').length;
+    const completed = all.filter(e => e.status === 'COMPLETED').length;
     const totalEl = document.getElementById('pickupTotal');
     const pendingEl = document.getElementById('pickupPending');
     const completedEl = document.getElementById('pickupCompleted');
-    if (totalEl) totalEl.innerText = rows.length;
+    if (totalEl) totalEl.innerText = all.length;
     if (pendingEl) pendingEl.innerText = pending;
     if (completedEl) completedEl.innerText = completed;
 }
 
+function searchPickupList() { filterPickupList(); }
+
 function filterPickupList() {
-    const statusFilter = document.getElementById('statusFilter')?.value || 'all';
-    const searchTerm = document.getElementById('searchPickup')?.value.toLowerCase() || '';
-    const appointments = window.pendingAppointments || [];
-    
-    let filtered = [...appointments];
+    const statusFilter = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : 'all';
+    const searchTerm = document.getElementById('searchPickup') ? document.getElementById('searchPickup').value.toLowerCase() : '';
+    const all = window.allExchanges || [];
+    let filtered = all.slice();
     if (statusFilter !== 'all') {
-        filtered = filtered.filter(a => a.status === statusFilter);
+        const targetStatus = statusFilter === 'pending' ? 'PENDING' : 'COMPLETED';
+        filtered = filtered.filter(e => e.status === targetStatus);
     }
     if (searchTerm) {
-        filtered = filtered.filter(a => 
-            (a.studentName && a.studentName.toLowerCase().includes(searchTerm)) ||
-            (a.studentId && String(a.studentId).toLowerCase().includes(searchTerm)) ||
-            (a.studentUsername && a.studentUsername.toLowerCase().includes(searchTerm)) ||
-            (a.bookName && a.bookName.toLowerCase().includes(searchTerm))
+        filtered = filtered.filter(e =>
+            (e.studentName||'').toLowerCase().includes(searchTerm) ||
+            (e.bookName||'').toLowerCase().includes(searchTerm)
         );
     }
     renderPickupTable(filtered);
-}
-
-function searchPickupList() {
-    filterPickupList();
 }
 
 function resetPickupFilters() {
@@ -282,28 +265,15 @@ function resetPickupFilters() {
     const searchInput = document.getElementById('searchPickup');
     if (statusFilter) statusFilter.value = 'all';
     if (searchInput) searchInput.value = '';
-    renderPickupTable(window.pendingAppointments || []);
+    renderPickupTable(window.allExchanges || []);
 }
 
-function updateVisiblePickupStats() {
-    const rows = document.querySelectorAll('#pickupBody tr');
-    let visibleRows = 0, pending = 0, completed = 0;
-    rows.forEach(row => {
-        if (row.style.display !== 'none') {
-            visibleRows++;
-            const status = row.getAttribute('data-status');
-            if (status === 'PENDING') pending++;
-            else if (status === 'COMPLETED') completed++;
-        }
-    });
-    const totalEl = document.getElementById('pickupTotal');
-    const pendingEl = document.getElementById('pickupPending');
-    const completedEl = document.getElementById('pickupCompleted');
-    if (totalEl) totalEl.innerText = visibleRows;
-    if (pendingEl) pendingEl.innerText = pending;
-    if (completedEl) completedEl.innerText = completed;
+function formatDateTime(dt) {
+    if (!dt) return '-';
+    const d = new Date(dt);
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
-
 // ==================== 查看学生信息功能 ====================
 window.viewStudentInfo = async function(studentId, studentName) {
     try {
@@ -373,160 +343,172 @@ async function loadPointsRule() {
     }
 }
 
+function getStatusLabel(status) {
+    const map = { 'PENDING': '待审核', 'APPROVED': '已通过', 'LISTED': '已上架', 'DELISTED': '已下架', 'REJECTED': '已拒绝' };
+    return map[status] || status;
+}
+function getStatusClass(status) {
+    const map = { 'PENDING': 'pending', 'APPROVED': 'approved', 'LISTED': 'listed', 'DELISTED': 'delisted', 'REJECTED': 'delisted' };
+    return map[status] || '';
+}
+
 function renderEvaluateTable() {
     const tbody = document.getElementById('evaluateTbody');
     if (!tbody) return;
 
-    const statusFilter = document.getElementById('statusFilter')?.value || 'all';
-    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : 'all';
+    const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase() : '';
 
-    let filteredData = [...(window.evaluateData || [])];
-    if (statusFilter !== 'all') {
-        filteredData = filteredData.filter(item => item.status === statusFilter);
-    }
+    const all = window.evaluateData || [];
+    const total = all.length;
+    const pending = all.filter(e => e.status === 'PENDING').length;
+    const approved = all.filter(e => e.status !== 'PENDING').length;
+    const completed = all.filter(e => e.status === 'LISTED').length;
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+    setEl('evalTotal', total);
+    setEl('evalPending', pending);
+    setEl('evalApproved', approved);
+    setEl('evalCompleted', completed);
+
+    let filtered = all.slice();
+    if (statusFilter !== 'all') filtered = filtered.filter(item => item.status === statusFilter);
     if (searchTerm) {
-        filteredData = filteredData.filter(item =>
-            (item.studentName && item.studentName.toLowerCase().includes(searchTerm)) ||
-            (item.studentId && String(item.studentId).includes(searchTerm)) ||
-            (item.studentUsername && item.studentUsername.toLowerCase().includes(searchTerm)) ||
-            (item.bookName && item.bookName.toLowerCase().includes(searchTerm))
-        );
+        filtered = filtered.filter(item => {
+            const sid = item.studentId ? String(item.studentId) : '';
+            const su = item.studentUsername || '';
+            const sn = item.studentName || '';
+            const bn = item.bookName || '';
+            return su.toLowerCase().includes(searchTerm) || sn.toLowerCase().includes(searchTerm) || sid.includes(searchTerm) || bn.toLowerCase().includes(searchTerm);
+        });
     }
 
-    if (filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">暂无评估数据</td></tr>';
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;">暂无评估数据</td></tr>';
         return;
     }
 
-    const statusMap = {
-        'PENDING': '<span class="status-badge pending">待审核</span>',
-        'APPROVED': '<span class="status-badge approved">已通过</span>',
-        'LISTED': '<span class="status-badge listed">已上架</span>',
-        'DELISTED': '<span class="status-badge delisted">已下架</span>',
-        'SYNCED': '<span class="status-badge approved">已同步</span>'
-    };
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    const esc = s => s ? s.replace(/'/g, "\'") : '';
 
-    tbody.innerHTML = filteredData.map(item => {
-        const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
-        let actionHtml = '';
+    tbody.innerHTML = filtered.map(item => {
+        const cond = item.adminCondition || item.selfCondition || '良好';
+        const pts = item.points || ruleMap[cond] || 0;
+        const sId = item.studentId || '';
+        const sName = esc(item.studentName);
+
+        let actions = '';
         if (item.status === 'PENDING') {
-            actionHtml = `<button class="btn-sm btn-pass" onclick="approveEvaluate(${item.id})">通过</button>`;
+            actions = '<button class="btn-sm btn-pass" onclick="approveEvaluate(' + item.id + ',this)">通过</button>';
         } else if (item.status === 'APPROVED') {
-            actionHtml = `<button class="btn-sm btn-sync" onclick="syncPoints(${item.id})">同步积分</button>
-                <button class="btn-sm btn-list" onclick="goToBookMgmt(${item.id})">上架</button>`;
+            actions = '<button class="btn-sm btn-sync" onclick="syncEvaluate(' + item.id + ',this)">同步积分</button>' +
+                      '<button class="btn-sm btn-list" onclick="goToBookMgmt(' + item.id + ')">上架</button>';
         } else if (item.status === 'LISTED') {
-            actionHtml = '<span class="status-text">已上架</span>';
+            actions = '<span style="color:#28a745;">已上架</span>';
         } else if (item.status === 'DELISTED') {
-            actionHtml = '<span class="status-text">已下架</span>';
+            actions = '<span style="color:#dc3545;">已下架</span>';
+        } else if (item.status === 'REJECTED') {
+            actions = '<span style="color:#dc3545;">已拒绝</span>';
         }
 
-        return `<tr>
-            <td class="appointment-link" onclick="showAppointmentDetail(${item.id})">📋 ${item.appointmentId || '-'}</td>
-            <td class="student-name-cell" onclick="viewStudentInfo('${item.studentUsername || item.studentId}', '${item.studentName}')">
-                ${item.studentName || '-'}<br><small>${item.studentId || '-'}</small>
-            </td>
-            <td style="text-align: left;">${escapeHtml(item.bookName || '-')}<br><small>${escapeHtml(item.author || '')}</small></td>
-            <td>${item.selfCondition || '-'}</td>
-            <td>
-                <select class="evaluate-select" data-id="${item.id}" onchange="updatePoints(this, ${item.id})">
-                    <option value="全新" ${item.adminCondition === '全新' ? 'selected' : ''}>全新</option>
-                    <option value="良好" ${item.adminCondition === '良好' ? 'selected' : ''}>良好</option>
-                    <option value="一般" ${item.adminCondition === '一般' ? 'selected' : ''}>一般</option>
-                    <option value="陈旧" ${item.adminCondition === '陈旧' ? 'selected' : ''}>陈旧</option>
-                </select>
-            </td>
-            <td class="points-display" id="points-${item.id}">${item.points || 0}</td>
-            <td>${statusMap[item.status] || item.status}</td>
-            <td class="action-buttons">${actionHtml}</td>
-        </tr>`;
+        return '<tr data-id="' + item.id + '">' +
+            '<td class="appointment-link" onclick="showAppointmentDetail(' + item.id + ')">&#128196; ' + (item.appointmentId || '-') + '</td>' +
+            '<td class="student-name-cell" onclick="viewStudentInfo(\'' + sId + '\',\'' + sName + '\')">' + (item.studentName ? item.studentName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.studentUsername || sId || '-') + '</small></td>' +
+            '<td style="text-align:left;">' + (item.bookName ? item.bookName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.author || '') + '</small></td>' +
+            '<td>' + (item.selfCondition || '-') + '</td>' +
+            '<td><select class="evaluate-select" data-id="' + item.id + '" onchange="onConditionChange(this,' + item.id + ')">' +
+                '<option value="全新"' + (cond === '全新' ? ' selected' : '') + '>全新</option>' +
+                '<option value="良好"' + (cond === '良好' ? ' selected' : '') + '>良好</option>' +
+                '<option value="一般"' + (cond === '一般' ? ' selected' : '') + '>一般</option>' +
+                '<option value="陈旧"' + (cond === '陈旧' ? ' selected' : '') + '>陈旧</option>' +
+            '</select></td>' +
+            '<td id="pts-' + item.id + '">' + pts + '</td>' +
+            '<td><span class="status-badge ' + getStatusClass(item.status) + '">' + getStatusLabel(item.status) + '</span></td>' +
+            '<td>' + actions + '</td></tr>';
     }).join('');
 }
 
-window.updatePoints = function(selectEl, id) {
+function onConditionChange(selectEl, id) {
     const condition = selectEl.value;
-    const points = window.pointsRuleMap?.[condition] || 0;
-    const pointsSpan = document.getElementById('points-' + id);
-    if (pointsSpan) pointsSpan.innerText = points;
-    
-    const item = window.evaluateData?.find(e => e.id === id);
-    if (item) {
-        item.adminCondition = condition;
-        item.points = points;
-    }
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    const pts = ruleMap[condition] || 0;
+    const ptsSpan = document.getElementById('pts-' + id);
+    if (ptsSpan) ptsSpan.innerText = pts;
+    const item = window.evaluateData.find(e => e.id === id);
+    if (item) { item.adminCondition = condition; item.points = pts; }
 }
 
-window.approveEvaluate = async function(id) {
+window.approveEvaluate = async function(id, btn) {
     if (!confirm('通过该回收申请？')) return;
+    if (btn) btn.disabled = true;
     try {
-        const item = window.evaluateData?.find(e => e.id === id);
-        await adminApiCall(`/evaluations/${id}/approve`, 'POST', { adminCondition: item?.adminCondition || '良好' });
+        const item = window.evaluateData.find(e => e.id === id);
+        const cond = (item && item.adminCondition) ? item.adminCondition : '良好';
+        await adminApiCall('/evaluations/' + id + '/approve', 'POST', { adminCondition: cond });
         alert('已通过审核');
         await loadEvaluateData();
         renderEvaluateTable();
     } catch (error) {
         alert(error.message);
+        if (btn) btn.disabled = false;
     }
 };
 
-window.syncPoints = async function(id) {
+window.syncEvaluate = async function(id, btn) {
     if (!confirm('确认同步积分？将为学生增加相应积分。')) return;
+    if (btn) btn.disabled = true;
     try {
-        await adminApiCall(`/evaluations/${id}/sync`, 'POST');
+        await adminApiCall('/evaluations/' + id + '/sync', 'POST');
         alert('积分同步成功！');
         await loadEvaluateData();
         renderEvaluateTable();
     } catch (error) {
         alert(error.message);
+        if (btn) btn.disabled = false;
     }
 };
 
-window.goToBookMgmt = async function(id) {
-    try {
-        await adminApiCall(`/evaluations/${id}/list`, 'POST');
-        alert('已上架到书籍库');
-        await loadEvaluateData();
-        renderEvaluateTable();
-    } catch (error) {
-        alert(error.message);
-    }
+window.goToBookMgmt = function(id) {
+    const item = window.evaluateData.find(e => e.id === id);
+    if (!item) return;
+    sessionStorage.setItem('bookPrefill', JSON.stringify({
+        fromEvaluation: true,
+        evaluationId: id,
+        bookName: item.bookName || '',
+        author: item.author || '',
+        publisher: item.publisher || '',
+        isbn: item.isbn || '',
+        condition: item.adminCondition || item.selfCondition || '良好',
+        points: item.points || 0,
+        coverImage: item.coverImage || '',
+        remark: item.remark || ''
+    }));
+    window.location.href = '/admin/book-mgmt.html';
 };
 
 window.showAppointmentDetail = function(id) {
-    const item = window.evaluateData?.find(e => e.id === id);
+    const item = window.evaluateData.find(e => e.id === id);
     if (!item) return;
-
-    const detailHtml = `
-        <div class="detail-section">
-            <h4>📋 预约信息</h4>
-            <div class="detail-row"><span class="detail-label">预约单号：</span><span class="detail-value">${item.appointmentId || '-'}</span></div>
-            <div class="detail-row"><span class="detail-label">提交时间：</span><span class="detail-value">${formatDate(item.submitTime)}</span></div>
-        </div>
-        <div class="detail-section">
-            <h4>👤 学生信息</h4>
-            <div class="detail-row"><span class="detail-label">姓名：</span><span class="detail-value">${item.studentName || '-'}</span></div>
-            <div class="detail-row"><span class="detail-label">学号：</span><span class="detail-value">${item.studentId || '-'}</span></div>
-        </div>
-        <div class="detail-section">
-            <h4>📚 教材信息</h4>
-            <div class="detail-row"><span class="detail-label">教材名称：</span><span class="detail-value">${escapeHtml(item.bookName || '-')}</span></div>
-            <div class="detail-row"><span class="detail-label">作者：</span><span class="detail-value">${escapeHtml(item.author || '-')}</span></div>
-            <div class="detail-row"><span class="detail-label">出版社：</span><span class="detail-value">${escapeHtml(item.publisher || '-')}</span></div>
-            <div class="detail-row"><span class="detail-label">ISBN：</span><span class="detail-value">${item.isbn || '-'}</span></div>
-            <div class="detail-row"><span class="detail-label">品相自评：</span><span class="detail-value">${item.selfCondition || '-'}</span></div>
-            <div class="detail-row"><span class="detail-label">备注说明：</span><span class="detail-value">${item.remark || '无'}</span></div>
-        </div>
-        <div class="detail-section">
-            <h4>🖼️ 教材图片</h4>
-            <div class="detail-images">
-                <div class="detail-image-item"><div>封面图</div><img src="${item.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='130' viewBox='0 0 100 130'%3E%3Crect width='100' height='130' fill='%23d0e2f2'/%3E%3Ctext x='50' y='65' text-anchor='middle' fill='%231e6d8f' font-size='14'%3E封面%3C/text%3E%3C/svg%3E"}" alt="封面图" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'130\' viewBox=\'0 0 100 130\'%3E%3Crect width=\'100\' height=\'130\' fill=\'%23d0e2f2\'/%3E%3Ctext x=\'50\' y=\'65\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'14\'%3E封面%3C/text%3E%3C/svg%3E'"></div>
-            </div>
-        </div>`;
-
-    const detailContent = document.getElementById('appointmentDetailContent');
-    if (detailContent) {
-        detailContent.innerHTML = detailHtml;
-        Modal.open('appointmentModal');
-    }
+    const e = s => escapeHtml(s || '-');
+    const img = item.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='130'%3E%3Crect width='100' height='130' fill='%23d0e2f2'/%3E%3Ctext x='50' y='65' text-anchor='middle' fill='%231e6d8f' font-size='14'%3E%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E";
+    document.getElementById('appointmentDetailContent').innerHTML =
+        '<div class="detail-section"><h4>&#128196; 预约信息</h4>' +
+        '<div class="detail-row"><span class="detail-label">预约单号：</span><span class="detail-value">' + (item.appointmentId || '-') + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">提交时间：</span><span class="detail-value">' + formatDate(item.submitTime) + '</span></div></div>' +
+        '<div class="detail-section"><h4>&#128100; 学生信息</h4>' +
+        '<div class="detail-row"><span class="detail-label">姓名：</span><span class="detail-value">' + e(item.studentName) + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">学号：</span><span class="detail-value">' + (item.studentUsername || item.studentId || '-') + '</span></div></div>' +
+        '<div class="detail-section"><h4>&#128218; 教材信息</h4>' +
+        '<div class="detail-row"><span class="detail-label">教材名称：</span><span class="detail-value">' + e(item.bookName) + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">作者：</span><span class="detail-value">' + e(item.author) + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">出版社：</span><span class="detail-value">' + e(item.publisher) + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">ISBN：</span><span class="detail-value">' + e(item.isbn) + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">品相自评：</span><span class="detail-value">' + (item.selfCondition || '-') + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">管理员评估：</span><span class="detail-value">' + (item.adminCondition || '-') + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">积分：</span><span class="detail-value">' + (item.points || 0) + '</span></div>' +
+        '<div class="detail-row"><span class="detail-label">备注：</span><span class="detail-value">' + e(item.remark || '无') + '</span></div></div>' +
+        '<div class="detail-section"><h4>&#128247; 教材图片</h4>' +
+        '<img src="' + img + '" style="max-width:120px;border-radius:8px;" onerror="this.onerror=null;this.src=\'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22130%22%3E%3Crect width=%22100%22 height=%22130%22 fill=%22%23d0e2f2%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22%231e6d8f%22 font-size=%2214%22%3E%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E\'"></div>';
+    Modal.open('appointmentModal');
 };
 
 function bindEvaluateEvents() {
@@ -534,942 +516,18 @@ function bindEvaluateEvents() {
     const resetBtn = document.getElementById('resetBtn');
     const statusFilter = document.getElementById('statusFilter');
     const searchInput = document.getElementById('searchInput');
-
-    if (searchBtn) searchBtn.addEventListener('click', () => renderEvaluateTable());
+    if (searchBtn) searchBtn.addEventListener('click', renderEvaluateTable);
     if (resetBtn) resetBtn.addEventListener('click', () => {
         if (statusFilter) statusFilter.value = 'all';
         if (searchInput) searchInput.value = '';
         renderEvaluateTable();
     });
-    if (statusFilter) statusFilter.addEventListener('change', () => renderEvaluateTable());
+    if (statusFilter) statusFilter.addEventListener('change', renderEvaluateTable);
     if (searchInput) {
-        searchInput.addEventListener('input', () => renderEvaluateTable());
-        searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') renderEvaluateTable(); });
+        searchInput.addEventListener('input', renderEvaluateTable);
+        searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') renderEvaluateTable(); });
     }
 }
-
-// ==================== 仪表盘初始化 ====================
-async function initDashboard() {
-    if (!document.querySelector('.admin-main')) return;
-    
-    // Load user name
-    const currentUser = getCurrentUser();
-    if (currentUser && currentUser.name) {
-        const userNameEl = document.getElementById('adminUserName');
-        if (userNameEl) userNameEl.innerText = '👤 ' + currentUser.name;
-    }
-    
-    // Load stats
-    try {
-        const result = await adminApiCall('/stats', 'GET');
-        const data = result.data;
-        
-        const totalRecycledEl = document.getElementById('totalRecycled');
-        if (totalRecycledEl) totalRecycledEl.innerText = data.totalRecycled || 0;
-        
-        const totalExchangedEl = document.getElementById('totalExchanged');
-        if (totalExchangedEl) totalExchangedEl.innerText = data.totalExchanged || 0;
-        
-        const pendingAppointmentsEl = document.getElementById('pendingAppointments');
-        if (pendingAppointmentsEl) pendingAppointmentsEl.innerText = data.pendingAppointments || 0;
-        
-        // Load low stock warnings
-        const lowStockBooks = data.lowStockBooks || [];
-        const lowStockList = document.getElementById('lowStockList');
-        if (lowStockList) {
-            if (lowStockBooks.length === 0) {
-                lowStockList.innerHTML = '<div class="warning-item"><span class="warning-book">暂无库存预警</span></div>';
-            } else {
-                lowStockList.innerHTML = lowStockBooks.map(book => `
-                    <div class="warning-item">
-                        <span class="warning-book">${escapeHtml(book.name || '-')}</span>
-                        <span class="warning-stock">库存: ${book.stock || 0}</span>
-                        <span class="warning-threshold">${book.stock === 0 ? '已缺货' : '即将售罄'}</span>
-                    </div>
-                `).join('');
-            }
-        }
-        
-        // Load pending appointments
-        const pendingCount = data.pendingAppointments || 0;
-        const pendingList = document.getElementById('pendingAppointmentsList');
-        if (pendingList) {
-            if (pendingCount === 0) {
-                pendingList.innerHTML = '<div class="warning-item"><span class="warning-book">暂无待审核预约</span></div>';
-            } else {
-                pendingList.innerHTML = `<div class="warning-item"><span class="warning-book">当前有 ${pendingCount} 个预约待审核</span></div>`;
-            }
-        }
-    } catch (error) {
-        console.error('加载统计数据失败:', error);
-    }
-}
-
-// ==================== 图表初始化 ====================
-let chartInstances = {};
-
-async function initCharts() {
-    if (typeof Chart === 'undefined') return;
-
-    try {
-        const result = await adminApiCall('/stats/charts', 'GET');
-        if (!result.success) throw new Error('获取图表数据失败');
-        
-        const data = result.data;
-        renderRecycleChart(data);
-        renderExchangeChart(data);
-        renderSubjectChart(data);
-    } catch (error) {
-        console.error('加载图表数据失败:', error);
-        // 显示暂无数据状态
-        showNoDataMessage();
-    }
-}
-
-function showNoDataMessage() {
-    ['recycleChart', 'exchangeChart', 'subjectChart'].forEach(id => {
-        const canvas = document.getElementById(id);
-        if (canvas) {
-            canvas.style.display = 'none';
-            const wrapper = canvas.parentElement;
-            if (wrapper && !wrapper.querySelector('.no-data-msg')) {
-                const msg = document.createElement('div');
-                msg.className = 'no-data-msg';
-                msg.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:14px;';
-                msg.textContent = '暂无数据';
-                wrapper.appendChild(msg);
-            }
-        }
-    });
-}
-
-function renderRecycleChart(data) {
-    const canvas = document.getElementById('recycleChart');
-    if (!canvas) return;
-    
-    // 清理旧实例
-    if (chartInstances.recycle) {
-        chartInstances.recycle.destroy();
-    }
-    
-    const labels = data.weeklyLabels || [];
-    const values = data.weeklyRecycleData || [];
-    const hasData = labels.length > 0 && values.some(v => v > 0);
-    
-    if (!hasData) {
-        canvas.style.display = 'none';
-        const wrapper = canvas.parentElement;
-        if (wrapper && !wrapper.querySelector('.no-data-msg')) {
-            const msg = document.createElement('div');
-            msg.className = 'no-data-msg';
-            msg.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:14px;';
-            msg.textContent = '暂无回收数据';
-            wrapper.appendChild(msg);
-        }
-        return;
-    }
-    
-    canvas.style.display = 'block';
-    const noDataMsg = canvas.parentElement?.querySelector('.no-data-msg');
-    if (noDataMsg) noDataMsg.remove();
-    
-    chartInstances.recycle = new Chart(canvas, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{ 
-                label: '回收量（本）', 
-                data: values, 
-                backgroundColor: '#1e6d8f', 
-                borderRadius: 8 
-            }]
-        },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } }
-            }
-        }
-    });
-}
-
-function renderExchangeChart(data) {
-    const canvas = document.getElementById('exchangeChart');
-    if (!canvas) return;
-    
-    if (chartInstances.exchange) {
-        chartInstances.exchange.destroy();
-    }
-    
-    const labels = data.exchangeLabels || [];
-    const values = data.exchangeData || [];
-    const hasData = labels.length > 0 && labels[0] !== '暂无数据' && values.some(v => v > 0);
-    
-    if (!hasData) {
-        canvas.style.display = 'none';
-        const wrapper = canvas.parentElement;
-        if (wrapper && !wrapper.querySelector('.no-data-msg')) {
-            const msg = document.createElement('div');
-            msg.className = 'no-data-msg';
-            msg.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:14px;';
-            msg.textContent = '暂无兑换数据';
-            wrapper.appendChild(msg);
-        }
-        return;
-    }
-    
-    canvas.style.display = 'block';
-    const noDataMsg = canvas.parentElement?.querySelector('.no-data-msg');
-    if (noDataMsg) noDataMsg.remove();
-    
-    const colors = ['#1e6d8f', '#4794b3', '#6fb3d2', '#9ac2d9', '#d0e2ed', '#c5a3cc', '#f0b8b8'];
-    
-    chartInstances.exchange = new Chart(canvas, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{ 
-                data: values, 
-                backgroundColor: labels.map((_, i) => colors[i % colors.length]), 
-                borderWidth: 0 
-            }]
-        },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            cutout: '65%',
-            plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } }
-            }
-        }
-    });
-}
-
-function renderSubjectChart(data) {
-    const canvas = document.getElementById('subjectChart');
-    if (!canvas) return;
-    
-    if (chartInstances.subject) {
-        chartInstances.subject.destroy();
-    }
-    
-    const monthLabels = data.monthLabels || [];
-    const monthlyMajorData = data.monthlyMajorData || {};
-    const allMajors = data.allMajors || ['通用'];
-    const hasData = monthLabels.length > 0 && Object.keys(monthlyMajorData).length > 0;
-    
-    if (!hasData) {
-        canvas.style.display = 'none';
-        const wrapper = canvas.parentElement;
-        if (wrapper && !wrapper.querySelector('.no-data-msg')) {
-            const msg = document.createElement('div');
-            msg.className = 'no-data-msg';
-            msg.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:14px;';
-            msg.textContent = '暂无分类数据';
-            wrapper.appendChild(msg);
-        }
-        return;
-    }
-    
-    canvas.style.display = 'block';
-    const noDataMsg = canvas.parentElement?.querySelector('.no-data-msg');
-    if (noDataMsg) noDataMsg.remove();
-    
-    const colors = ['#1e6d8f', '#4794b3', '#6fb3d2', '#9ac2d9', '#d0e2ed'];
-    const datasets = allMajors.map((major, i) => ({
-        label: major,
-        data: monthLabels.map(month => monthlyMajorData[month]?.[major] || 0),
-        borderColor: colors[i % colors.length],
-        tension: 0.3
-    }));
-    
-    chartInstances.subject = new Chart(canvas, {
-        type: 'line',
-        data: {
-            labels: monthLabels,
-            datasets: datasets
-        },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } }
-            },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } }
-            }
-        }
-    });
-}
-
-// ==================== 库存管理功能 ====================
-async function initInventoryPage() {
-    if (!document.querySelector('.inventory-page') && 
-        !document.querySelector('.inventory-in-page') && 
-        !document.querySelector('.inventory-out-page') && 
-        !document.querySelector('.inventory-check-page')) return;
-    
-    if (document.querySelector('.inventory-in-page')) {
-        await loadInventoryInRecords();
-    } else if (document.querySelector('.inventory-out-page')) {
-        await loadInventoryOutRecords();
-    } else if (document.querySelector('.inventory-check-page')) {
-        await loadInventoryCheckData();
-    } else {
-        // 默认加载全部库存
-        await loadInventoryBooks();
-    }
-    initNavUserInfo();
-}
-
-async function loadInventoryBooks() {
-    try {
-        const result = await adminApiCall('/inventory/books', 'GET');
-        window.inventoryBooks = result.data || [];
-        renderInventoryTable(window.inventoryBooks);
-    } catch (error) {
-        console.error('加载库存失败:', error);
-    }
-}
-
-async function loadInventoryInRecords() {
-    try {
-        const result = await adminApiCall('/inventory/records', 'GET');
-        const records = (result.data || []).filter(r => r.type === 'IN');
-        renderInventoryInTable(records);
-    } catch (error) {
-        console.error('加载入库记录失败:', error);
-    }
-}
-
-function renderInventoryInTable(records) {
-    const tbody = document.getElementById('inventoryInTableBody');
-    if (!tbody) return;
-    
-    if (records.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无入库记录</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = records.map((r, i) => `
-        <tr>
-            <td>${r.id || '-'}</td>
-            <td>${escapeHtml(r.bookName || '-')}</td>
-            <td>${escapeHtml(r.isbn || '-')}</td>
-            <td>+${r.quantity || 0}</td>
-            <td>${formatDate(r.createTime)}</td>
-            <td>${escapeHtml(r.operator || '-')}</td>
-            <td>-</td>
-        </tr>
-    `).join('');
-}
-
-async function loadInventoryOutRecords() {
-    try {
-        const result = await adminApiCall('/inventory/records', 'GET');
-        const records = (result.data || []).filter(r => r.type === 'OUT');
-        renderInventoryOutTable(records);
-    } catch (error) {
-        console.error('加载出库记录失败:', error);
-    }
-}
-
-function renderInventoryOutTable(records) {
-    const tbody = document.getElementById('inventoryOutTableBody');
-    if (!tbody) return;
-    
-    if (records.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无出库记录</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = records.map((r, i) => `
-        <tr>
-            <td>${r.id || '-'}</td>
-            <td>${escapeHtml(r.bookName || '-')}</td>
-            <td>${escapeHtml(r.isbn || '-')}</td>
-            <td>-${r.quantity || 0}</td>
-            <td>${formatDate(r.createTime)}</td>
-            <td>${escapeHtml(r.operator || '-')}</td>
-            <td>-</td>
-        </tr>
-    `).join('');
-}
-
-async function loadInventoryCheckData() {
-    try {
-        const result = await adminApiCall('/inventory/books', 'GET');
-        const books = result.data || [];
-        
-        // 计算统计数据
-        const totalSpecies = books.length;
-        const totalStock = books.reduce((sum, b) => sum + (b.stock || 0), 0);
-        
-        document.getElementById('totalSpecies').innerText = totalSpecies;
-        document.getElementById('totalStock').innerText = totalStock;
-        document.getElementById('profitCount').innerText = '0';
-        document.getElementById('lossCount').innerText = '0';
-        
-        // 渲染盘点表格
-        const tbody = document.getElementById('inventoryCheckTableBody');
-        if (tbody) {
-            if (books.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">暂无数据</td></tr>';
-            } else {
-                tbody.innerHTML = books.map(b => `
-                    <tr>
-                        <td>${escapeHtml(b.name || '-')}</td>
-                        <td>${escapeHtml(b.isbn || '-')}</td>
-                        <td>${b.stock || 0}</td>
-                        <td>${b.stock || 0}</td>
-                        <td>0</td>
-                        <td>正常</td>
-                    </tr>
-                `).join('');
-            }
-        }
-    } catch (error) {
-        console.error('加载盘点数据失败:', error);
-    }
-}
-
-function renderInventoryTable(books) {
-    const tbody = document.getElementById('inventoryTableBody');
-    if (!tbody) return;
-
-    if (books.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">暂无书籍数据</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = books.map(book => `
-        <tr>
-            <td>${escapeHtml(book.name || '-')}</td>
-            <td>${escapeHtml(book.isbn || '-')}</td>
-            <td>${book.stock || 0}</td>
-            <td>-</td>
-            <td>${formatDate(book.updateTime)}</td>
-            <td>
-                <button class="btn-sm btn-primary btn-in-out" onclick="openInModal(${book.id})">入库</button>
-                <button class="btn-sm btn-secondary btn-in-out" onclick="openOutModal(${book.id})">出库</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-async function openInModal(bookId) {
-    const quantity = prompt('请输入入库数量:');
-    if (!quantity || isNaN(parseInt(quantity))) return;
-    try {
-        await adminApiCall('/inventory/in', 'POST', { bookId, quantity: parseInt(quantity), remark: '' });
-        alert('入库成功');
-        await loadInventoryBooks();
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-async function openOutModal(bookId) {
-    const quantity = prompt('请输入出库数量:');
-    if (!quantity || isNaN(parseInt(quantity))) return;
-    try {
-        await adminApiCall('/inventory/out', 'POST', { bookId, quantity: parseInt(quantity), remark: '' });
-        alert('出库成功');
-        await loadInventoryBooks();
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-function searchInventoryTable() {
-    const searchTerm = document.getElementById('inventorySearchInput')?.value.toLowerCase() || '';
-    if (!window.inventoryBooks) return;
-    
-    if (!searchTerm) {
-        renderInventoryTable(window.inventoryBooks);
-        return;
-    }
-    
-    const filtered = window.inventoryBooks.filter(book =>
-        (book.name && book.name.toLowerCase().includes(searchTerm)) ||
-        (book.isbn && book.isbn.toLowerCase().includes(searchTerm)) ||
-        (book.author && book.author.toLowerCase().includes(searchTerm))
-    );
-    renderInventoryTable(filtered);
-}
-
-function openStockInModal() {
-    const select = document.getElementById('stockInBookSelect');
-    if (!select) return;
-    
-    // 填充教材选项
-    select.innerHTML = '<option value="">-- 请选择教材 --</option>';
-    if (window.inventoryBooks && window.inventoryBooks.length > 0) {
-        window.inventoryBooks.forEach(book => {
-            const option = document.createElement('option');
-            option.value = book.id;
-            option.textContent = `${book.name} (${book.isbn}) - 库存: ${book.stock || 0}`;
-            select.appendChild(option);
-        });
-    }
-    
-    document.getElementById('stockInQuantity').value = 1;
-    document.getElementById('stockInRemark').value = '';
-    Modal.open('stockInModal');
-}
-
-function openStockOutModal() {
-    const select = document.getElementById('stockOutBookSelect');
-    if (!select) return;
-    
-    // 填充教材选项
-    select.innerHTML = '<option value="">-- 请选择教材 --</option>';
-    if (window.inventoryBooks && window.inventoryBooks.length > 0) {
-        window.inventoryBooks.forEach(book => {
-            const option = document.createElement('option');
-            option.value = book.id;
-            option.textContent = `${book.name} (${book.isbn}) - 库存: ${book.stock || 0}`;
-            select.appendChild(option);
-        });
-    }
-    
-    document.getElementById('stockOutQuantity').value = 1;
-    document.getElementById('stockOutRemark').value = '';
-    Modal.open('stockOutModal');
-}
-
-async function submitStockIn() {
-    const bookId = document.getElementById('stockInBookSelect')?.value;
-    const quantity = parseInt(document.getElementById('stockInQuantity')?.value) || 0;
-    const remark = document.getElementById('stockInRemark')?.value || '';
-    
-    if (!bookId) {
-        alert('请选择教材');
-        return;
-    }
-    if (quantity <= 0) {
-        alert('数量必须大于0');
-        return;
-    }
-    
-    try {
-        const result = await adminApiCall('/inventory/in', 'POST', { bookId: parseInt(bookId), quantity, remark });
-        if (result.success) {
-            alert('入库成功');
-            Modal.close('stockInModal');
-            await loadInventoryBooks();
-        } else {
-            alert(result.message || '入库失败');
-        }
-    } catch (error) {
-        alert('入库失败: ' + error.message);
-    }
-}
-
-async function submitStockOut() {
-    const bookId = document.getElementById('stockOutBookSelect')?.value;
-    const quantity = parseInt(document.getElementById('stockOutQuantity')?.value) || 0;
-    const remark = document.getElementById('stockOutRemark')?.value || '';
-    
-    if (!bookId) {
-        alert('请选择教材');
-        return;
-    }
-    if (quantity <= 0) {
-        alert('数量必须大于0');
-        return;
-    }
-    
-    try {
-        const result = await adminApiCall('/inventory/out', 'POST', { bookId: parseInt(bookId), quantity, remark });
-        if (result.success) {
-            alert('出库成功');
-            Modal.close('stockOutModal');
-            await loadInventoryBooks();
-        } else {
-            alert(result.message || '出库失败');
-        }
-    } catch (error) {
-        alert('出库失败: ' + error.message);
-    }
-}
-
-// ==================== 书籍管理功能 ====================
-async function initBookMgmtPage() {
-    if (!document.querySelector('.book-mgmt-main')) return;
-    await loadBooksForMgmt();
-    await loadCategoriesForBookForm();
-    initNavUserInfo();
-}
-
-async function loadCategoriesForBookForm() {
-    try {
-        const result = await adminApiCall('/categories', 'GET');
-        const categories = result.data || [];
-        
-        // 填充表单中的专业下拉框
-        const select = document.getElementById('bookMajor');
-        if (select) {
-            select.innerHTML = '<option value="">请选择专业</option>';
-            categories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat.name;
-                option.textContent = cat.name;
-                select.appendChild(option);
-            });
-        }
-        
-        // 填充筛选器的专业下拉框
-        const filterSelect = document.getElementById('bookMajorFilter');
-        if (filterSelect) {
-            filterSelect.innerHTML = '<option value="all">全部专业</option>';
-            categories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat.name;
-                option.textContent = cat.name;
-                filterSelect.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('加载专业失败:', error);
-    }
-}
-
-async function loadBooksForMgmt() {
-    try {
-        const result = await adminApiCall('/books', 'GET');
-        window.allBooks = result.data || [];
-        renderBookMgmtTable(window.allBooks);
-    } catch (error) {
-        console.error('加载书籍失败:', error);
-    }
-}
-
-function renderBookMgmtTable(books) {
-    const tbody = document.getElementById('bookTableBody');
-    if (!tbody) return;
-
-    if (books.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 40px;">暂无书籍</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = books.map(book => `
-        <tr>
-            <td><img src="${book.coverImage || ''}" alt="" style="width:40px;height:50px;object-fit:cover;" onerror="this.style.display='none'"></td>
-            <td>${escapeHtml(book.name || '-')}</td>
-            <td>${escapeHtml(book.isbn || '-')}</td>
-            <td>${escapeHtml(book.major || '通用')}</td>
-            <td>${book.stock || 0}</td>
-            <td>${book.points || 0}</td>
-            <td><span class="status-badge ${book.status === 'LISTED' ? 'approved' : 'delisted'}">${book.status === 'LISTED' ? '上架' : '下架'}</span></td>
-            <td>
-                <button class="btn-sm" onclick="editBook(${book.id})">编辑</button>
-                <button class="btn-sm" style="background:#dc3545;color:white;" onclick="deleteBook(${book.id})">删除</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-async function deleteBook(id) {
-    if (!confirm('确定要删除这本书吗？')) return;
-    try {
-        await adminApiCall(`/books/${id}`, 'DELETE');
-        alert('删除成功');
-        await loadBooksForMgmt();
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-function openBookModal(bookId) {
-    document.getElementById('bookModalTitle').innerText = bookId ? '✏️ 编辑书籍' : '📖 新增书籍';
-    document.getElementById('bookForm').reset();
-    
-    if (bookId) {
-        // 编辑模式：填充数据
-        const book = window.allBooks.find(b => b.id === bookId);
-        if (book) {
-            document.getElementById('bookId').value = book.id;
-            document.getElementById('bookName').value = book.name || '';
-            document.getElementById('bookAuthor').value = book.author || '';
-            document.getElementById('bookPublisher').value = book.publisher || '';
-            document.getElementById('bookIsbn').value = book.isbn || '';
-            document.getElementById('bookMajor').value = book.major || '';
-            document.getElementById('bookCondition').value = book.condition || 'GOOD';
-            document.getElementById('bookPoints').value = book.points || 0;
-            document.getElementById('bookStock').value = book.stock || 0;
-            document.getElementById('bookStatus').value = book.status || 'LISTED';
-            document.getElementById('bookCoverImage').value = book.coverImage || '';
-        }
-    } else {
-        document.getElementById('bookId').value = '';
-    }
-    
-    Modal.open('bookModal');
-}
-
-async function saveBook() {
-    const bookId = document.getElementById('bookId').value;
-    const bookData = {
-        name: document.getElementById('bookName').value,
-        author: document.getElementById('bookAuthor').value,
-        publisher: document.getElementById('bookPublisher').value,
-        isbn: document.getElementById('bookIsbn').value,
-        major: document.getElementById('bookMajor').value,
-        condition: document.getElementById('bookCondition').value,
-        points: parseInt(document.getElementById('bookPoints').value) || 0,
-        stock: parseInt(document.getElementById('bookStock').value) || 0,
-        status: document.getElementById('bookStatus').value,
-        coverImage: ''
-    };
-    
-    if (!bookData.name) {
-        alert('请输入书籍名称');
-        return;
-    }
-    
-    try {
-        if (bookId) {
-            // 更新
-            await adminApiCall(`/books/${bookId}`, 'PUT', bookData);
-            alert('更新成功');
-        } else {
-            // 新增
-            await adminApiCall('/books', 'POST', bookData);
-            alert('新增成功');
-        }
-        Modal.close('bookModal');
-        await loadBooksForMgmt();
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-function editBook(bookId) {
-    openBookModal(bookId);
-}
-
-// ==================== 分类管理功能 ====================
-async function initCategoryMgmtPage() {
-    if (!document.querySelector('.category-mgmt-main')) return;
-    await loadCategories();
-    initNavUserInfo();
-}
-
-async function loadCategories() {
-    try {
-        const result = await adminApiCall('/categories', 'GET');
-        window.allCategories = result.data || [];
-        renderCategoryTable(window.allCategories);
-    } catch (error) {
-        console.error('加载分类失败:', error);
-    }
-}
-
-function renderCategoryTable(categories) {
-    const tbody = document.getElementById('categoryTableBody');
-    if (!tbody) return;
-    
-    if (categories.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无分类</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = categories.map((cat, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(cat.name || '-')}</td>
-            <td>${escapeHtml(cat.code || '-')}</td>
-            <td>${cat.sort || 0}</td>
-            <td><span class="status-badge ${cat.status === 'ACTIVE' ? 'approved' : 'delisted'}">${cat.status === 'ACTIVE' ? '启用' : '禁用'}</span></td>
-            <td>${formatDate(cat.createTime)}</td>
-            <td>
-                <button class="btn-sm" onclick="editCategory(${cat.id})">编辑</button>
-                <button class="btn-sm" style="background:#dc3545;color:white;" onclick="deleteCategory(${cat.id})">删除</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-function openCategoryModal(categoryId) {
-    document.getElementById('categoryModalTitle').innerText = categoryId ? '✏️ 编辑专业' : '📂 新增专业';
-    document.getElementById('categoryForm').reset();
-    
-    if (categoryId) {
-        const cat = window.allCategories.find(c => c.id === categoryId);
-        if (cat) {
-            document.getElementById('categoryId').value = cat.id;
-            document.getElementById('categoryName').value = cat.name || '';
-            document.getElementById('categoryCode').value = cat.code || '';
-            document.getElementById('categorySort').value = cat.sort || 0;
-            document.getElementById('categoryStatus').value = cat.status === 'ACTIVE' ? 'active' : 'inactive';
-        }
-    } else {
-        document.getElementById('categoryId').value = '';
-    }
-    
-    Modal.open('categoryModal');
-}
-
-async function saveCategory() {
-    const categoryId = document.getElementById('categoryId').value;
-    const categoryData = {
-        name: document.getElementById('categoryName').value,
-        code: document.getElementById('categoryCode').value,
-        sort: parseInt(document.getElementById('categorySort').value) || 0,
-        status: document.getElementById('categoryStatus').value === 'active' ? 'ACTIVE' : 'INACTIVE'
-    };
-    
-    if (!categoryData.name) {
-        alert('请输入专业名称');
-        return;
-    }
-    
-    try {
-        if (categoryId) {
-            await adminApiCall(`/categories/${categoryId}`, 'PUT', categoryData);
-            alert('更新成功');
-        } else {
-            await adminApiCall('/categories', 'POST', categoryData);
-            alert('新增成功');
-        }
-        Modal.close('categoryModal');
-        await loadCategories();
-        await loadCategoriesForBookForm(); // 同步更新书籍表单的专业下拉框
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-function editCategory(categoryId) {
-    openCategoryModal(categoryId);
-}
-
-async function deleteCategory(categoryId) {
-    if (!confirm('确定要删除这个专业分类吗？')) return;
-    try {
-        await adminApiCall(`/categories/${categoryId}`, 'DELETE');
-        alert('删除成功');
-        await loadCategories();
-        await loadCategoriesForBookForm();
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-function searchCategories() {
-    const statusFilter = document.getElementById('categoryStatusFilter')?.value || 'all';
-    const searchTerm = document.getElementById('categorySearchInput')?.value.toLowerCase() || '';
-    
-    if (!window.allCategories) return;
-    
-    let filtered = window.allCategories;
-    
-    if (statusFilter !== 'all') {
-        const statusMap = { 'active': 'ACTIVE', 'inactive': 'INACTIVE' };
-        filtered = filtered.filter(c => c.status === statusMap[statusFilter]);
-    }
-    
-    if (searchTerm) {
-        filtered = filtered.filter(c =>
-            (c.name && c.name.toLowerCase().includes(searchTerm)) ||
-            (c.code && c.code.toLowerCase().includes(searchTerm))
-        );
-    }
-    
-    renderCategoryTable(filtered);
-}
-
-function resetCategoryFilters() {
-    document.getElementById('categoryStatusFilter').value = 'all';
-    document.getElementById('categorySearchInput').value = '';
-    renderCategoryTable(window.allCategories || []);
-}
-
-function searchBooks() {
-    const statusFilter = document.getElementById('bookStatusFilter')?.value || 'all';
-    const majorFilter = document.getElementById('bookMajorFilter')?.value || 'all';
-    const searchTerm = document.getElementById('bookSearchInput')?.value.toLowerCase() || '';
-    
-    if (!window.allBooks) return;
-    
-    let filtered = window.allBooks;
-    
-    // Status filter
-    if (statusFilter !== 'all') {
-        const statusMap = { 'listed': 'LISTED', 'delisted': 'DELISTED' };
-        filtered = filtered.filter(b => b.status === statusMap[statusFilter]);
-    }
-    
-    // Major filter
-    if (majorFilter !== 'all') {
-        filtered = filtered.filter(b => b.major === majorFilter);
-    }
-    
-    // Search term
-    if (searchTerm) {
-        filtered = filtered.filter(b =>
-            (b.name && b.name.toLowerCase().includes(searchTerm)) ||
-            (b.isbn && b.isbn.toLowerCase().includes(searchTerm)) ||
-            (b.author && b.author.toLowerCase().includes(searchTerm))
-        );
-    }
-    
-    renderBookMgmtTable(filtered);
-}
-
-function resetBookFilters() {
-    document.getElementById('bookStatusFilter').value = 'all';
-    document.getElementById('bookMajorFilter').value = 'all';
-    document.getElementById('bookSearchInput').value = '';
-    renderBookMgmtTable(window.allBooks || []);
-}
-
-// ==================== 辅助函数 ====================
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function getCurrentUser() {
-    const userStr = sessionStorage.getItem('current_user');
-    if (userStr) return JSON.parse(userStr);
-    return null;
-}
-
-// ==================== 导航栏用户信息 ====================
-async function initNavUserInfo() {
-    try {
-        const currentUser = getCurrentUser();
-        if (!currentUser || !currentUser.id) return;
-        
-        // 从API获取最新用户信息
-        const result = await adminApiCall(`/users/${currentUser.id}`, 'GET');
-        if (result.success && result.data) {
-            const user = result.data;
-            const nameEl = document.getElementById('navUserName');
-            if (nameEl) nameEl.innerText = user.name || '管理员';
-            
-            // 更新sessionStorage中的用户信息
-            const updatedUser = { ...currentUser, name: user.name };
-            sessionStorage.setItem('current_user', JSON.stringify(updatedUser));
-        }
-    } catch (error) {
-        console.error('加载用户信息失败:', error);
-    }
-}
-
 // ==================== 个人设置页面 ====================
 async function initAdminProfilePage() {
     if (!document.querySelector('.admin-profile-main')) return;
@@ -1479,36 +537,46 @@ async function initAdminProfilePage() {
 
 async function loadProfileData() {
     try {
-        const currentUser = getCurrentUser();
-        if (!currentUser || !currentUser.id) return;
-        
-        const result = await adminApiCall(`/users/${currentUser.id}`, 'GET');
-        if (!result.success) return;
-        
+        const result = await adminApiCall('/profile', 'GET');
+        console.log('[DEBUG] loadProfileData result:', JSON.stringify(result));
         const user = result.data;
-        
-        document.getElementById('profileUsername').innerText = user.username || '-';
-        document.getElementById('profileName').innerText = user.name || '-';
-        document.getElementById('profileDept').innerText = user.college || '-';
-        document.getElementById('profileRole').innerText = user.role === 'ADMIN' ? '系统管理员' : (user.role || '-');
-        document.getElementById('profileYear').innerText = user.year || '-';
-        document.getElementById('profilePhone').innerText = user.phone || '-';
-        document.getElementById('profileLocation').innerText = user.major || '-';
-        
-        // 更新sessionStorage中的用户信息
-        const updatedUser = { ...currentUser, name: user.name };
-        sessionStorage.setItem('current_user', JSON.stringify(updatedUser));
-        
-        // 填充弹窗表单
-        document.querySelector('#infoModal input[placeholder="姓名"]').value = user.name || '';
-        document.querySelector('#infoModal input[placeholder="部门"]').value = user.college || '';
-        document.querySelector('#infoModal input[placeholder="联系电话"]').value = user.phone || '';
-        document.querySelector('#infoModal input[placeholder="入职年份"]').value = user.year || '';
-        document.querySelector('#infoModal input[placeholder="工作地点"]').value = user.major || '';
-        
+        if (!user) {
+            const currentUser = getCurrentUser();
+            if (!currentUser || !currentUser.id) {
+                // 彻底没有用户信息，跳转到登录页
+                document.getElementById('profileUsername').innerText = '请重新登录';
+                document.getElementById('profileName').innerText = 'sessionStorage无用户信息';
+                return;
+            }
+            const fallback = await adminApiCall(`/users/${currentUser.id}`, 'GET');
+            if (!fallback.success || !fallback.data) return;
+            return populateProfileData(fallback.data);
+        }
+        return populateProfileData(user);
     } catch (error) {
         console.error('加载个人信息失败:', error);
     }
+}
+
+function populateProfileData(user) {
+        console.log('[DEBUG] populateProfileData user:', JSON.stringify(user));
+        const setEl = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val || '-'; };
+        setEl('profileUsername', user.username);
+        setEl('profileName', user.name);
+        setEl('profileDept', user.dept || user.college || '-');
+        setEl('profileYear', user.year || '-');
+        setEl('profilePhone', user.phone || '-');
+        setEl('profileLocation', user.workplace || '-');
+
+        const updatedUser = { ...getCurrentUser(), name: user.name };
+        try { sessionStorage.setItem('current_user', JSON.stringify(updatedUser)); } catch(e) {}
+
+        const fill = (id, val) => { const e = document.getElementById(id); if (e) e.value = val || ''; };
+        fill('editName', user.name);
+        fill('editDept', user.dept || user.college);
+        fill('editYear', user.year);
+        fill('editPhone', user.phone);
+        fill('editLocation', user.workplace);
 }
 
 async function saveProfile() {
@@ -1518,37 +586,37 @@ async function saveProfile() {
             alert('用户未登录');
             return;
         }
-        
-        const name = document.querySelector('#infoModal input[placeholder="姓名"]').value.trim();
-        const college = document.querySelector('#infoModal input[placeholder="部门"]').value.trim();
-        const phone = document.querySelector('#infoModal input[placeholder="联系电话"]').value.trim();
-        const year = document.querySelector('#infoModal input[placeholder="入职年份"]').value.trim();
-        const major = document.querySelector('#infoModal input[placeholder="工作地点"]').value.trim();
-        
+
+        const name = document.getElementById('editName').value.trim();
+        const dept = document.getElementById('editDept').value.trim();
+        const year = document.getElementById('editYear').value.trim();
+        const phone = document.getElementById('editPhone').value.trim();
+        const location = document.getElementById('editLocation').value.trim();
+
         if (!name) {
             alert('姓名不能为空');
             return;
         }
-        
-        const updateData = {
-            name: name,
-            college: college,
-            phone: phone,
-            year: year ? parseInt(year) : null,
-            major: major
-        };
-        
-        const result = await adminApiCall(`/users/${currentUser.id}`, 'PUT', updateData);
+
+        const payload = { name };
+        if (dept) payload.college = dept;
+        if (year) payload.year = year;
+        if (phone) payload.phone = phone;
+        if (location) payload.workplace = location;
+
+        const result = await adminApiCall(`/users/${currentUser.id}`, 'PUT', payload);
+
         if (result.success) {
-            alert('信息已更新');
+            alert('保存成功');
             Modal.close('infoModal');
             await loadProfileData();
-            initNavUserInfo();
+            const nameEl = document.getElementById('adminUserName');
+            if (nameEl) nameEl.innerHTML = '&#128100; ' + name;
         } else {
-            alert(result.message || '更新失败');
+            alert(result.message || '保存失败');
         }
     } catch (error) {
-        alert('更新失败: ' + error.message);
+        alert(error.message);
     }
 }
 
@@ -1638,6 +706,1152 @@ async function loadPointsRuleForPage() {
     }
 }
 
+
+// ==================== 书籍管理功能 ====================
+async function loadBooksForMgmt() {
+    try {
+        const result = await adminApiCall('/books', 'GET');
+        window.allBooks = result.data || [];
+        renderBookTable();
+    } catch (error) {
+        console.error('加载书籍失败:', error);
+    }
+}
+
+async function loadCategoriesForBookForm() {
+    try {
+        const result = await adminApiCall('/categories', 'GET');
+        const categories = result.data || [];
+        const selects = [
+            document.getElementById('bookMajorFilter'),
+            document.getElementById('bookMajor')
+        ];
+        selects.forEach(sel => {
+            if (!sel) return;
+            const currentVal = sel.value;
+            sel.innerHTML = '<option value="">全部专业</option>' +
+                categories.map(c => '<option value="' + c.name + '">' + c.name + '</option>').join('');
+            sel.value = currentVal;
+        });
+    } catch (error) {
+        console.error('加载分类失败:', error);
+    }
+}
+
+async function loadPointsRuleForBook() {
+    try {
+        const result = await adminApiCall('/points-rule', 'GET');
+        const rule = result.data || {};
+        window.bookPointsRule = {
+            '全新': rule.ruleNew || 200,
+            '良好': rule.ruleGood || 150,
+            '一般': rule.ruleNormal || 80,
+            '陈旧': rule.ruleOld || 40
+        };
+    } catch (error) {
+        window.bookPointsRule = { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    }
+}
+
+// ==================== 书籍新增/编辑弹窗 ====================
+function openBookModal(book) {
+    document.getElementById('bookForm').reset();
+    document.getElementById('bookId').value = '';
+    document.getElementById('coverPreview').innerHTML = '';
+    document.getElementById('bookPointsDisplay').innerText = '—';
+    document.getElementById('bookPoints').value = '0';
+    document.getElementById('bookModalTitle').innerText = '📖 新增书籍';
+    document.getElementById('bookCoverFile').required = true;
+
+    if (book) {
+        document.getElementById('bookId').value = book.id;
+        document.getElementById('bookName').value = book.name || '';
+        document.getElementById('bookAuthor').value = book.author || '';
+        document.getElementById('bookPublisher').value = book.publisher || '';
+        document.getElementById('bookIsbn').value = book.isbn || '';
+        document.getElementById('bookMajor').value = book.major || '';
+        document.getElementById('bookCondition').value = book.condition || '';
+        document.getElementById('bookStock').value = book.stock || 0;
+        document.getElementById('bookStatus').value = book.status || 'LISTED';
+        document.getElementById('bookPoints').value = book.points || 0;
+        document.getElementById('bookPointsDisplay').innerText = book.points || 0;
+        document.getElementById('bookCoverFile').required = false;
+        if (book.coverImage) {
+            document.getElementById('coverPreview').innerHTML =
+                '<img src="' + book.coverImage + '" style="max-width:120px;max-height:120px;border-radius:4px;">';
+        }
+        document.getElementById('bookModalTitle').innerText = '📖 编辑书籍';
+    }
+
+    Modal.open('bookModal');
+}
+
+function openBookModalWithPrefill(prefill) {
+    openBookModal();
+    if (prefill.name) document.getElementById('bookName').value = prefill.name;
+    if (prefill.author) document.getElementById('bookAuthor').value = prefill.author;
+    if (prefill.publisher) document.getElementById('bookPublisher').value = prefill.publisher;
+    if (prefill.isbn) document.getElementById('bookIsbn').value = prefill.isbn;
+    if (prefill.condition) {
+        document.getElementById('bookCondition').value = prefill.condition;
+        updateBookPointsByCondition();
+    }
+    if (prefill.points) {
+        document.getElementById('bookPoints').value = prefill.points;
+        document.getElementById('bookPointsDisplay').innerText = prefill.points;
+    }
+    document.getElementById('bookCoverFile').required = false;
+}
+
+function previewBookCover(input) {
+    const preview = document.getElementById('coverPreview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = '<img src="' + e.target.result + '" style="max-width:120px;max-height:120px;border-radius:4px;">';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.innerHTML = '';
+    }
+}
+
+function updateBookPointsByCondition() {
+    const condition = document.getElementById('bookCondition').value;
+    const rule = window.bookPointsRule || {};
+    const points = rule[condition] || 0;
+    document.getElementById('bookPoints').value = points;
+    document.getElementById('bookPointsDisplay').innerText = points > 0 ? points : '—';
+}
+
+async function updateBookStatus(id, status) {
+    try {
+        const result = await adminApiCall('/books/' + id + '/status', 'PUT', { status });
+        if (result.success) {
+            await loadBooksForMgmt();
+        } else {
+            alert(result.message || '操作失败');
+        }
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+async function saveBook() {
+    const formData = new FormData();
+    const id = document.getElementById('bookId').value;
+    const name = document.getElementById('bookName').value.trim();
+    const author = document.getElementById('bookAuthor').value.trim();
+    const publisher = document.getElementById('bookPublisher').value.trim();
+    const isbn = document.getElementById('bookIsbn').value.trim();
+    const major = document.getElementById('bookMajor').value;
+    const condition = document.getElementById('bookCondition').value;
+    const points = parseInt(document.getElementById('bookPoints').value) || 0;
+    const stock = parseInt(document.getElementById('bookStock').value) || 0;
+    const status = document.getElementById('bookStatus').value;
+    const coverFile = document.getElementById('bookCoverFile').files[0];
+
+    if (!name) { alert('请填写书籍名称'); return; }
+    if (!author) { alert('请填写作者'); return; }
+    if (!publisher) { alert('请填写出版社'); return; }
+    if (!isbn) { alert('请填写ISBN'); return; }
+    if (!major) { alert('请选择专业'); return; }
+    if (!condition) { alert('请选择品相'); return; }
+    if (!id && !coverFile) { alert('请上传教材封面图'); return; }
+
+    formData.append('name', name);
+    formData.append('author', author);
+    formData.append('publisher', publisher);
+    formData.append('isbn', isbn);
+    formData.append('major', major);
+    formData.append('condition', condition);
+    formData.append('points', points);
+    formData.append('stock', stock);
+    formData.append('status', status);
+    if (coverFile) formData.append('coverImageFile', coverFile);
+
+    try {
+        let result;
+        if (id) {
+            result = await adminApiCall('/books/' + id, 'PUT', formData);
+        } else {
+            result = await adminApiCall('/books', 'POST', formData);
+        }
+        if (result.success) {
+            alert(id ? '修改成功' : '新增成功');
+            Modal.close('bookModal');
+            await loadBooksForMgmt();
+        } else {
+            alert(result.message || '操作失败');
+        }
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+function renderBookTable() {
+    const tbody = document.getElementById('bookTableBody');
+    if (!tbody) return;
+
+    const statusFilter = document.getElementById('bookStatusFilter') ? document.getElementById('bookStatusFilter').value : 'all';
+    const majorFilter = document.getElementById('bookMajorFilter') ? document.getElementById('bookMajorFilter').value : '';
+    const searchTerm = document.getElementById('bookSearchInput') ? document.getElementById('bookSearchInput').value.toLowerCase() : '';
+
+    let filtered = (window.allBooks || []).slice();
+    if (statusFilter !== 'all') {
+        const norm = statusFilter === 'listed' ? 'LISTED' : 'DELISTED';
+        filtered = filtered.filter(b => b.status === norm);
+    }
+    if (majorFilter) filtered = filtered.filter(b => b.major === majorFilter);
+    if (searchTerm) {
+        filtered = filtered.filter(b =>
+            (b.name || '').toLowerCase().includes(searchTerm) ||
+            (b.isbn || '').toLowerCase().includes(searchTerm)
+        );
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;">暂无书籍数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(book => {
+        const cover = book.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='80'%3E%3Crect width='60' height='80' fill='%23d0e2f2'/%3E%3Ctext x='30' y='40' text-anchor='middle' fill='%231e6d8f' font-size='10'%3E%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E";
+        const statusClass = book.status === 'LISTED' ? 'listed' : 'delisted';
+        const statusText = book.status === 'LISTED' ? '上架' : '下架';
+        const editBtn = '<button class="btn-sm" onclick="openBookModal(' + book.id + ')">编辑</button>';
+        const toggleBtn = book.status === 'LISTED'
+            ? '<button class="btn-sm btn-danger" onclick="updateBookStatus(' + book.id + ', \'DELISTED\')">下架</button>'
+            : '<button class="btn-sm btn-pass" onclick="updateBookStatus(' + book.id + ', \'LISTED\')">上架</button>';
+
+        return '<tr>' +
+            '<td><img src="' + cover + '" style="width:40px;height:50px;object-fit:cover;border-radius:4px;" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'60\' height=\'80\'%3E%3Crect width=\'60\' height=\'80\' fill=\'%23d0e2f2\'/%3E%3Ctext x=\'30\' y=\'40\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'10\'%3E%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E\'"></td>' +
+            '<td style="text-align:left;">' + (book.name||'-').replace(/</g,'&lt;') + '</td>' +
+            '<td>' + (book.major||'-') + '</td>' +
+            '<td>' + (book.condition||'-') + '</td>' +
+            '<td><span class="status-badge ' + statusClass + '">' + statusText + '</span></td>' +
+            '<td>' + editBtn + ' ' + toggleBtn + '</td></tr>';
+    }).join('');
+}
+
+window.searchBooks = function() { renderBookTable(); };
+window.resetBookFilters = function() {
+    const s = document.getElementById('bookStatusFilter');
+    const m = document.getElementById('bookMajorFilter');
+    const si = document.getElementById('bookSearchInput');
+    if (s) s.value = 'all';
+    if (m) m.value = '';
+    if (si) si.value = '';
+    renderBookTable();
+};
+
+window.updateBookStatus = async function(id, status) {
+    if (!confirm('确认' + (status === 'LISTED' ? '上架' : '下架') + '？')) return;
+    try {
+        await adminApiCall('/books/' + id + '/status', 'PUT', { status });
+        await loadBooksForMgmt();
+    } catch (error) {
+        alert(error.message);
+    }
+};
+
+window.openBookModal = function(bookId) {
+    const isEdit = bookId && bookId !== 'undefined' && bookId !== '';
+    document.getElementById('bookModalTitle').innerText = isEdit ? '&#128214; 编辑书籍' : '&#128218; 新增书籍';
+    document.getElementById('bookForm').reset();
+    document.getElementById('coverPreview').innerHTML = '';
+
+    if (isEdit) {
+        const book = (window.allBooks || []).find(b => String(b.id) === String(bookId));
+        if (book) {
+            document.getElementById('bookId').value = book.id;
+            document.getElementById('bookName').value = book.name || '';
+            document.getElementById('bookAuthor').value = book.author || '';
+            document.getElementById('bookPublisher').value = book.publisher || '';
+            document.getElementById('bookIsbn').value = book.isbn || '';
+            document.getElementById('bookMajor').value = book.major || '';
+            document.getElementById('bookCondition').value = book.condition || '良好';
+            document.getElementById('bookStock').value = book.stock || 0;
+            document.getElementById('bookStatus').value = book.status || 'LISTED';
+            document.getElementById('bookPoints').value = book.points || 0;
+            document.getElementById('bookCoverFile').required = false;
+            const ptsDisplay = document.getElementById('bookPointsDisplay');
+            if (ptsDisplay) ptsDisplay.innerText = (book.points || 0) + ' 积分';
+            if (book.coverImage) {
+                document.getElementById('coverPreview').innerHTML =
+                    '<img src="' + book.coverImage + '" style="max-width:80px;max-height:100px;border-radius:8px;object-fit:cover;">';
+            }
+        }
+    } else {
+        document.getElementById('bookId').value = '';
+        document.getElementById('bookCoverFile').required = true;
+        const ptsDisplay = document.getElementById('bookPointsDisplay');
+        if (ptsDisplay) ptsDisplay.innerText = '0 积分';
+    }
+
+    Modal.open('bookModal');
+};
+
+window.openBookModalWithPrefill = function(prefill) {
+    document.getElementById('bookModalTitle').innerText = '&#128218; 新增书籍（来自评估）';
+    document.getElementById('bookForm').reset();
+    document.getElementById('coverPreview').innerHTML = '';
+
+    document.getElementById('bookId').value = '';
+    document.getElementById('bookName').value = prefill.bookName || '';
+    document.getElementById('bookAuthor').value = prefill.author || '';
+    document.getElementById('bookPublisher').value = prefill.publisher || '';
+    document.getElementById('bookIsbn').value = prefill.isbn || '';
+    document.getElementById('bookMajor').value = ''; // 让管理员手动选择
+    document.getElementById('bookCondition').value = prefill.condition || '良好';
+    document.getElementById('bookStock').value = 1;
+    document.getElementById('bookStatus').value = 'LISTED';
+    document.getElementById('bookCoverFile').required = false;
+
+    const pts = prefill.points || 0;
+    document.getElementById('bookPoints').value = pts;
+    const ptsDisplay = document.getElementById('bookPointsDisplay');
+    if (ptsDisplay) ptsDisplay.innerText = pts + ' 积分';
+
+    if (prefill.coverImage) {
+        document.getElementById('coverPreview').innerHTML =
+            '<img src="' + prefill.coverImage + '" style="max-width:80px;max-height:100px;border-radius:8px;object-fit:cover;">';
+    }
+
+    Modal.open('bookModal');
+};
+
+window.updateBookPointsByCondition = function() {
+    const cond = document.getElementById('bookCondition').value;
+    const rule = window.bookPointsRule || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    const pts = rule[cond] || 0;
+    document.getElementById('bookPoints').value = pts;
+    const ptsDisplay = document.getElementById('bookPointsDisplay');
+    if (ptsDisplay) ptsDisplay.innerText = pts + ' 积分';
+};
+
+window.previewBookCover = function(input) {
+    const preview = document.getElementById('coverPreview');
+    if (!preview) return;
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = '<img src="' + e.target.result + '" style="max-width:80px;max-height:100px;border-radius:8px;object-fit:cover;">';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+};
+
+window.saveBook = async function() {
+    const form = document.getElementById('bookForm');
+    const bookId = document.getElementById('bookId').value;
+    const isEdit = !!bookId;
+
+    const formData = new FormData();
+        formData.append('name', document.getElementById('bookName').value);
+    formData.append('author', document.getElementById('bookAuthor').value);
+    formData.append('publisher', document.getElementById('bookPublisher').value);
+    formData.append('isbn', document.getElementById('bookIsbn').value);
+    formData.append('major', document.getElementById('bookMajor').value);
+    formData.append('condition', document.getElementById('bookCondition').value);
+    formData.append('stock', document.getElementById('bookStock').value);
+    formData.append('status', document.getElementById('bookStatus').value);
+    formData.append('points', document.getElementById('bookPoints').value);
+
+    const coverFile = document.getElementById('bookCoverFile').files[0];
+    if (coverFile) formData.append('coverImageFile', coverFile);
+
+    try {
+        let result;
+        if (isEdit) {
+            result = await adminApiCall('/books/' + bookId, 'PUT', formData);
+        } else {
+            result = await adminApiCall('/books', 'POST', formData);
+        }
+
+        if (result.code === 0 || result.code === 200 || result.success) {
+            Modal.close('bookModal');
+            await loadBooksForMgmt();
+        } else {
+            alert(result.message || '保存失败');
+        }
+    } catch (error) {
+        alert(error.message);
+    }
+};
+
+// ==================== 书籍管理页面 ====================
+async function initBookMgmtPage() {
+    if (!document.querySelector('.book-mgmt-main')) return;
+    await Promise.all([
+        loadBooksForMgmt(),
+        loadCategoriesForBookForm(),
+        loadPointsRuleForBook()
+    ]);
+    initNavUserInfo();
+
+    // 检查是否有从评估页面跳转过来的预填数据
+    const prefillStr = sessionStorage.getItem('bookPrefill');
+    if (prefillStr) {
+        try {
+            const prefill = JSON.parse(prefillStr);
+            sessionStorage.removeItem('bookPrefill');
+            setTimeout(() => openBookModalWithPrefill(prefill), 200);
+        } catch (e) {
+            console.error('预填数据解析失败', e);
+        }
+    }
+}
+
+window.openBookModalWithPrefill = function(prefill) {
+    document.getElementById('bookModalTitle').innerText = '📖 新增书籍（来自评估）';
+    document.getElementById('bookForm').reset();
+    document.getElementById('coverPreview').innerHTML = '';
+
+    document.getElementById('bookId').value = '';
+    document.getElementById('bookName').value = prefill.bookName || '';
+    document.getElementById('bookAuthor').value = prefill.author || '';
+    document.getElementById('bookPublisher').value = prefill.publisher || '';
+    document.getElementById('bookIsbn').value = prefill.isbn || '';
+    document.getElementById('bookMajor').value = ''; // 让管理员手动选择
+    document.getElementById('bookCondition').value = prefill.condition || '良好';
+    document.getElementById('bookStock').value = 1;
+    document.getElementById('bookStatus').value = 'LISTED';
+    document.getElementById('bookCoverFile').required = false;
+
+    const pts = prefill.points || 0;
+    document.getElementById('bookPoints').value = pts;
+    const ptsDisplay = document.getElementById('bookPointsDisplay');
+    if (ptsDisplay) ptsDisplay.innerText = pts + ' 积分';
+
+    if (prefill.coverImage) {
+        document.getElementById('coverPreview').innerHTML =
+            '<img src="' + prefill.coverImage + '" style="max-width:80px;max-height:100px;border-radius:8px;object-fit:cover;">';
+    }
+
+    Modal.open('bookModal');
+};
+
+
+// ==================== 库存管理页面 ====================
+async function initInventoryPage() {
+    if (!document.querySelector('.inventory-page')) return;
+    await loadInventoryBooks();
+    bindInventoryEvents();
+}
+
+async function initInventoryInPage() {
+    if (!document.querySelector('.inventory-in-page')) return;
+    await loadInventoryInRecords();
+    bindInventoryInEvents();
+}
+
+async function initInventoryOutPage() {
+    if (!document.querySelector('.inventory-out-page')) return;
+    await loadInventoryOutRecords();
+    bindInventoryOutEvents();
+}
+
+async function initInventoryCheckPage() {
+    if (!document.querySelector('.inventory-check-page')) return;
+    // 生成盘点单号
+    const now = new Date();
+    const checkNo = 'CHK-' + now.getFullYear() +
+        String(now.getMonth()+1).padStart(2,'0') +
+        String(now.getDate()).padStart(2,'0') + '-' +
+        String(now.getHours()).padStart(2,'0') +
+        String(now.getMinutes()).padStart(2,'0') +
+        String(now.getSeconds()).padStart(2,'0');
+    const el = document.getElementById('checkNo');
+    if (el) el.value = checkNo;
+    const dateEl = document.getElementById('checkDate');
+    if (dateEl) dateEl.value = now.toISOString().slice(0,10);
+    const opEl = document.getElementById('checkOperator');
+    if (opEl) opEl.value = window.currentAdminName || '管理员';
+    bindInventoryCheckEvents();
+}
+
+// ---- 全部库存 ----
+async function loadInventoryBooks() {
+    try {
+        const result = await adminApiCall('/inventory/books', 'GET');
+        window.inventoryBooks = result.data || [];
+        renderInventoryTable();
+    } catch (error) {
+        console.error('加载库存失败:', error);
+        window.inventoryBooks = [];
+    }
+}
+
+function renderInventoryTable() {
+    const tbody = document.getElementById('inventoryTableBody');
+    if (!tbody) return;
+
+    const searchTerm = document.getElementById('inventorySearchInput')
+        ? document.getElementById('inventorySearchInput').value.toLowerCase() : '';
+
+    let filtered = (window.inventoryBooks || []).slice();
+    if (searchTerm) {
+        filtered = filtered.filter(b =>
+            (b.name||'').toLowerCase().includes(searchTerm) ||
+            (b.isbn||'').toLowerCase().includes(searchTerm) ||
+            (b.author||'').toLowerCase().includes(searchTerm)
+        );
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;">暂无库存数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(book => {
+        const cover = book.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='50'%3E%3Crect width='40' height='50' fill='%23d0e2f2'/%3E%3Ctext x='20' y='25' text-anchor='middle' fill='%231e6d8f' font-size='8'%3E%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E";
+        const loc = book.location || '-';
+        return '<tr>' +
+            '<td style="text-align:left;"><img src="' + cover + '" style="width:30px;height:40px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:8px;">' + (book.name||'-').replace(/</g,'&lt;') + '</td>' +
+            '<td>' + (book.isbn||'-') + '</td>' +
+            '<td>' + (book.stock||0) + '</td>' +
+            '<td>' + loc + '</td>' +
+            '<td>' + formatDate(book.updateTime) + '</td>' +
+            '<td>' +
+                '<button class="btn-sm" onclick="openStockInForBook(' + book.id + ')">入库</button> ' +
+                '<button class="btn-sm" onclick="openStockOutForBook(' + book.id + ')">出库</button>' +
+            '</td></tr>';
+    }).join('');
+}
+
+function bindInventoryEvents() {
+    const inp = document.getElementById('inventorySearchInput');
+    if (inp) {
+        inp.addEventListener('input', renderInventoryTable);
+        inp.addEventListener('keypress', e => { if (e.key === 'Enter') renderInventoryTable(); });
+    }
+    loadStockInBookSelect();
+    loadStockOutBookSelect();
+}
+
+async function loadStockInBookSelect() {
+    try {
+        const result = await adminApiCall('/inventory/books', 'GET');
+        const books = result.data || [];
+        const sel = document.getElementById('stockInBookSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- 请选择教材 --</option>' +
+            books.map(b => '<option value="' + b.id + '">' + (b.name||'-') + '（库存:' + (b.stock||0) + '）</option>').join('');
+    } catch (error) { console.error('加载教材下拉失败', error); }
+}
+
+async function loadStockOutBookSelect() {
+    try {
+        const result = await adminApiCall('/inventory/books', 'GET');
+        const books = result.data || [];
+        const sel = document.getElementById('stockOutBookSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- 请选择教材 --</option>' +
+            books.map(b => '<option value="' + b.id + '">' + (b.name||'-') + '（库存:' + (b.stock||0) + '）</option>').join('');
+    } catch (error) { console.error('加载教材下拉失败', error); }
+}
+
+window.openStockInModal = function() {
+    loadStockInBookSelect();
+    Modal.open('stockInModal');
+};
+
+window.openStockOutModal = function() {
+    loadStockOutBookSelect();
+    Modal.open('stockOutModal');
+};
+
+window.openStockInForBook = function(bookId) {
+    document.getElementById('stockInBookSelect').value = bookId;
+    Modal.open('stockInModal');
+};
+
+window.openStockOutForBook = function(bookId) {
+    document.getElementById('stockOutBookSelect').value = bookId;
+    Modal.open('stockOutModal');
+};
+
+window.submitStockIn = async function() {
+    const bookId = document.getElementById('stockInBookSelect').value;
+    const qty = document.getElementById('stockInQuantity').value;
+    const remark = document.getElementById('stockInRemark').value;
+    if (!bookId) { alert('请选择教材'); return; }
+    if (!qty || qty <= 0) { alert('请输入正确的数量'); return; }
+    try {
+        await adminApiCall('/inventory/in', 'POST', {
+            bookId: parseInt(bookId),
+            quantity: parseInt(qty),
+            remark: remark || ''
+        });
+        Modal.close('stockInModal');
+        document.getElementById('stockInQuantity').value = '1';
+        document.getElementById('stockInRemark').value = '';
+        await loadInventoryBooks();
+        renderInventoryTable();
+        alert('入库成功');
+    } catch (error) {
+        alert(error.message);
+    }
+};
+
+window.submitStockOut = async function() {
+    const bookId = document.getElementById('stockOutBookSelect').value;
+    const qty = document.getElementById('stockOutQuantity').value;
+    const remark = document.getElementById('stockOutRemark').value;
+    if (!bookId) { alert('请选择教材'); return; }
+    if (!qty || qty <= 0) { alert('请输入正确的数量'); return; }
+    try {
+        await adminApiCall('/inventory/out', 'POST', {
+            bookId: parseInt(bookId),
+            quantity: parseInt(qty),
+            remark: remark || ''
+        });
+        Modal.close('stockOutModal');
+        document.getElementById('stockOutQuantity').value = '1';
+        document.getElementById('stockOutRemark').value = '';
+        await loadInventoryBooks();
+        renderInventoryTable();
+        alert('出库成功');
+    } catch (error) {
+        alert(error.message);
+    }
+};
+
+// ---- 入库记录 ----
+async function loadInventoryInRecords() {
+    try {
+        const result = await adminApiCall('/inventory/records', 'GET');
+        window.inventoryInRecords = (result.data || []).filter(r => r.type === 'IN');
+        renderInventoryInTable();
+    } catch (error) {
+        window.inventoryInRecords = [];
+    }
+}
+
+function renderInventoryInTable() {
+    const tbody = document.getElementById('inventoryInTableBody');
+    if (!tbody) return;
+    const records = window.inventoryInRecords || [];
+    if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无入库记录</td></tr>';
+        return;
+    }
+    tbody.innerHTML = records.map(r => '<tr>' +
+        '<td>' + (r.id||'-') + '</td>' +
+        '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (r.isbn||'-') + '</td>' +
+        '<td>+' + (r.quantity||0) + '</td>' +
+        '<td>' + formatDateTime(r.createTime) + '</td>' +
+        '<td>' + (r.operator||'-') + '</td>' +
+        '<td>' + (r.remark||'-') + '</td></tr>'
+    ).join('');
+}
+
+function bindInventoryInEvents() {
+    const inp = document.querySelector('.inventory-in-page input[type="text"]');
+    if (inp) inp.addEventListener('input', e => {
+        const term = e.target.value.toLowerCase();
+        const filtered = (window.inventoryInRecords||[]).filter(r =>
+            (r.bookName||'').toLowerCase().includes(term) ||
+            (r.isbn||'').toLowerCase().includes(term)
+        );
+        const tbody = document.getElementById('inventoryInTableBody');
+        if (!tbody) return;
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无入库记录</td></tr>';
+            return;
+        }
+        tbody.innerHTML = filtered.map(r => '<tr>' +
+            '<td>' + (r.id||'-') + '</td>' +
+            '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+            '<td>' + (r.isbn||'-') + '</td>' +
+            '<td>+' + (r.quantity||0) + '</td>' +
+            '<td>' + formatDateTime(r.createTime) + '</td>' +
+            '<td>' + (r.operator||'-') + '</td>' +
+            '<td>' + (r.remark||'-') + '</td></tr>'
+        ).join('');
+    });
+}
+
+// ---- 出库记录 ----
+async function loadInventoryOutRecords() {
+    try {
+        const result = await adminApiCall('/inventory/records', 'GET');
+        window.inventoryOutRecords = (result.data || []).filter(r => r.type === 'OUT');
+        renderInventoryOutTable();
+    } catch (error) {
+        window.inventoryOutRecords = [];
+    }
+}
+
+function renderInventoryOutTable() {
+    const tbody = document.getElementById('inventoryOutTableBody');
+    if (!tbody) return;
+    const records = window.inventoryOutRecords || [];
+    if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无出库记录</td></tr>';
+        return;
+    }
+    tbody.innerHTML = records.map(r => '<tr>' +
+        '<td>' + (r.id||'-') + '</td>' +
+        '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (r.isbn||'-') + '</td>' +
+        '<td>-' + (r.quantity||0) + '</td>' +
+        '<td>' + formatDateTime(r.createTime) + '</td>' +
+        '<td>' + (r.operator||'-') + '</td>' +
+        '<td>' + (r.remark||'-') + '</td></tr>'
+    ).join('');
+}
+
+function bindInventoryOutEvents() {
+    const inp = document.querySelector('.inventory-out-page input[type="text"]');
+    if (inp) inp.addEventListener('input', e => {
+        const term = e.target.value.toLowerCase();
+        const filtered = (window.inventoryOutRecords||[]).filter(r =>
+            (r.bookName||'').toLowerCase().includes(term) ||
+            (r.isbn||'').toLowerCase().includes(term)
+        );
+        const tbody = document.getElementById('inventoryOutTableBody');
+        if (!tbody) return;
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无出库记录</td></tr>';
+            return;
+        }
+        tbody.innerHTML = filtered.map(r => '<tr>' +
+            '<td>' + (r.id||'-') + '</td>' +
+            '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+            '<td>' + (r.isbn||'-') + '</td>' +
+            '<td>-' + (r.quantity||0) + '</td>' +
+            '<td>' + formatDateTime(r.createTime) + '</td>' +
+            '<td>' + (r.operator||'-') + '</td>' +
+            '<td>' + (r.remark||'-') + '</td></tr>'
+        ).join('');
+    });
+}
+
+// ---- 库存盘点 ----
+window.loadInventoryCheckData = async function() {
+    try {
+        const result = await adminApiCall('/inventory/books', 'GET');
+        const books = result.data || [];
+        window.checkBooks = books;
+        renderInventoryCheckTable();
+    } catch (error) {
+        alert('加载盘点数据失败');
+    }
+};
+
+function renderInventoryCheckTable() {
+    const tbody = document.getElementById('inventoryCheckTableBody');
+    if (!tbody) return;
+    const books = window.checkBooks || [];
+    if (books.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;">暂无库存数据</td></tr>';
+        return;
+    }
+    tbody.innerHTML = books.map(book => '<tr data-id="' + book.id + '">' +
+        '<td style="text-align:left;">' + (book.name||'-').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (book.isbn||'-') + '</td>' +
+        '<td id="sys-' + book.id + '">' + (book.stock||0) + '</td>' +
+        '<td><input type="number" class="check-input" id="actual-' + book.id + '" value="' + (book.stock||0) + '" min="0" onchange="updateCheckDiff(' + book.id + ')"></td>' +
+        '<td id="diff-' + book.id + '" class="diff-cell">0</td>' +
+        '<td><input type="text" class="check-remark" id="remark-' + book.id + '" placeholder="备注"></td></tr>'
+    ).join('');
+    updateCheckSummary();
+}
+
+window.updateCheckDiff = function(bookId) {
+    const sysStock = parseInt(document.getElementById('sys-' + bookId)?.innerText || '0');
+    const actualStock = parseInt(document.getElementById('actual-' + bookId)?.value || '0');
+    const diff = actualStock - sysStock;
+    const diffEl = document.getElementById('diff-' + bookId);
+    if (diffEl) {
+        diffEl.innerText = (diff > 0 ? '+' : '') + diff;
+        diffEl.className = 'diff-cell ' + (diff > 0 ? 'profit' : diff < 0 ? 'loss' : '');
+    }
+    updateCheckSummary();
+};
+
+function updateCheckSummary() {
+    const books = window.checkBooks || [];
+    let totalSpecies = books.length;
+    let totalStock = 0;
+    let profitCount = 0;
+    let lossCount = 0;
+    books.forEach(book => {
+        const sysStock = parseInt(document.getElementById('sys-' + book.id)?.innerText || '0');
+        const actualStock = parseInt(document.getElementById('actual-' + book.id)?.value || '0');
+        const diff = actualStock - sysStock;
+        totalStock += actualStock;
+        if (diff > 0) profitCount += diff;
+        if (diff < 0) lossCount += Math.abs(diff);
+    });
+    const totalDiff = profitCount - lossCount;
+    const diffNumEl = document.querySelector('.diff-number');
+    if (diffNumEl) diffNumEl.innerText = (totalDiff > 0 ? '+' : '') + totalDiff;
+    const el = id => document.getElementById(id);
+    if (el('totalSpecies')) el('totalSpecies').innerText = totalSpecies;
+    if (el('totalStock')) el('totalStock').innerText = totalStock;
+    if (el('profitCount')) el('profitCount').innerText = profitCount;
+    if (el('lossCount')) el('lossCount').innerText = lossCount;
+}
+
+window.saveCheckResult = function() {
+    const books = window.checkBooks || [];
+    let html = '盘点结果汇总：\n';
+    let hasDiff = false;
+    books.forEach(book => {
+        const sysStock = parseInt(document.getElementById('sys-' + book.id)?.innerText || '0');
+        const actualStock = parseInt(document.getElementById('actual-' + book.id)?.value || '0');
+        const diff = actualStock - sysStock;
+        const remark = document.getElementById('remark-' + book.id)?.value || '';
+        if (diff !== 0) {
+            hasDiff = true;
+            html += book.name + '：系统' + sysStock + '，实际' + actualStock + '，差异' + (diff>0?'+':'') + diff + (remark ? '（'+remark+'）' : '') + '\n';
+        }
+    });
+    if (!hasDiff) html += '所有库存账实一致，无差异。\n';
+    alert(html);
+};
+
+function bindInventoryCheckEvents() {
+    // 初始化时自动加载
+    loadInventoryCheckData();
+}
+
+
+
+// ==================== 公共函数 ====================
+function initCharts() { /* chart instances created in loadChartData() */ }
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getCurrentUser() {
+    try {
+        const stored = sessionStorage.getItem('current_user');
+        if (!stored) return null;
+        return JSON.parse(stored);
+    } catch (e) {
+        return null;
+    }
+}
+
+// ==================== 公共初始化 ====================
+async function initNavUserInfo() {
+    if (!document.querySelector('.admin-main') && !document.querySelector('.admin-notice-main') &&
+        !document.querySelector('.book-mgmt-main') && !document.querySelector('.rule-page') &&
+        !document.querySelector('.admin-profile-main') && !document.querySelector('.evaluate-page')) return;
+    try {
+        const result = await adminApiCall('/profile', 'GET');
+        const user = result.data;
+        if (user) {
+            window.currentAdminName = user.name || user.username || '管理员';
+            const nameEl = document.getElementById('adminUserName');
+            if (nameEl) nameEl.innerHTML = '&#128100; ' + window.currentAdminName;
+            // 同步到sessionStorage
+            if (user.id) {
+                try {
+                    let stored = null;
+                    const s = sessionStorage.getItem('current_user');
+                    if (s) stored = JSON.parse(s);
+                    if (!stored || stored.id !== user.id) {
+                        sessionStorage.setItem('current_user', JSON.stringify({
+                            id: user.id, username: user.username, role: user.role, name: user.name
+                        }));
+                    }
+                } catch(e) {}
+            }
+        }
+    } catch (error) {
+        console.error('加载用户信息失败', error);
+    }
+}
+
+// ==================== 数据总览页面 ====================
+async function initDashboard() {
+    if (!document.querySelector('.admin-main')) return;
+    await Promise.all([
+        loadDashboardStats(),
+        loadChartData(),
+        loadLowStockBooks()
+    ]);
+}
+
+async function loadDashboardStats() {
+    try {
+        const result = await adminApiCall('/stats', 'GET');
+        const stats = result.data || {};
+        const setEl = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
+        setEl('totalRecycled', stats.totalRecycled || 0);
+        setEl('totalExchanged', stats.totalExchanged || 0);
+        setEl('pendingEvaluations', stats.pendingEvaluations || 0);
+        setEl('completedEvaluations', stats.completedEvaluations || 0);
+        setEl('totalAppointments', stats.approvedAppointments || 0);
+        setEl('pendingAppointments', stats.pendingAppointments || 0);
+    } catch (error) {
+        console.error('加载统计数据失败', error);
+    }
+}
+
+async function loadLowStockBooks() {
+    try {
+        const result = await adminApiCall('/stats', 'GET');
+        const stats = result.data || {};
+
+        // 库存预警
+        const books = stats.lowStockBooks || [];
+        const container = document.getElementById('lowStockList');
+        if (container) {
+            if (books.length === 0) {
+                container.innerHTML = '<div class="warning-item"><span class="warning-book">暂无库存预警</span></div>';
+            } else {
+                container.innerHTML = books.map(book =>
+                    '<div class="warning-item">' +
+                    '<span class="warning-book">' + (book.name||'-').replace(/</g,'&lt;') + '（库存:' + book.stock + '）</span>' +
+                    '</div>'
+                ).join('');
+            }
+        }
+
+    } catch (error) {
+        console.error('加载库存预警失败', error);
+    }
+}
+
+let recycleChartInstance = null;
+let exchangeChartInstance = null;
+let popularChartInstance = null;
+
+async function loadChartData() {
+    try {
+        const result = await adminApiCall('/stats/charts', 'GET');
+        const data = result.data || {};
+
+        // 回收量折线图
+        const recycleCanvas = document.getElementById('recycleChart');
+        if (recycleCanvas) {
+            if (recycleChartInstance) recycleChartInstance.destroy();
+            const ctx = recycleCanvas.getContext('2d');
+            recycleChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dailyLabels || [],
+                    datasets: [{
+                        label: '日回收量',
+                        data: data.dailyRecycleData || [],
+                        borderColor: '#4a90d9',
+                        backgroundColor: 'rgba(74,144,217,0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+
+        // 兑换率饼图
+        const exchangeCanvas = document.getElementById('exchangeChart');
+        if (exchangeCanvas) {
+            if (exchangeChartInstance) exchangeChartInstance.destroy();
+            const ctx2 = exchangeCanvas.getContext('2d');
+            exchangeChartInstance = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: data.exchangeLabels || [],
+                    datasets: [{
+                        data: data.exchangeData || [],
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.85)',
+                            'rgba(59, 130, 246, 0.85)',
+                            'rgba(14, 165, 233, 0.85)',
+                            'rgba(34, 197, 94, 0.85)',
+                            'rgba(249, 115, 22, 0.85)',
+                            'rgba(236, 72, 153, 0.85)'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        hoverOffset: 12
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '55%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 16, usePointStyle: true, pointStyle: 'circle', font: { size: 12 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                                    return ' ' + ctx.label + ': ' + ctx.parsed + ' 本 (' + pct + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 学科分类统计横向柱状图
+        const popularCanvas = document.getElementById('subjectChart');
+        if (popularCanvas) {
+            if (popularChartInstance) popularChartInstance.destroy();
+            const ctx3 = popularCanvas.getContext('2d');
+            const barColors = [
+                'rgba(99, 102, 241, 0.8)',
+                'rgba(59, 130, 246, 0.8)',
+                'rgba(14, 165, 233, 0.8)',
+                'rgba(34, 197, 94, 0.8)',
+                'rgba(249, 115, 22, 0.8)'
+            ];
+            popularChartInstance = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: (data.popularLabels || []).map(l => l.length > 10 ? l.slice(0,10)+'…' : l),
+                    datasets: [{
+                        label: '评估量',
+                        data: data.popularData || [],
+                        backgroundColor: barColors,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        hoverBackgroundColor: barColors.map(c => c.replace('0.8', '1'))
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ' 评估量: ' + ctx.parsed.x + ' 本';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('加载图表数据失败', error);
+    }
+}
+
+// ==================== 分类管理页面 ====================
+async function initCategoryMgmtPage() {
+    if (!document.querySelector('.category-mgmt-main')) return;
+    await loadCategories();
+    bindCategoryEvents();
+}
+
+async function openCategoryModal(id) {
+    document.getElementById('categoryId').value = id || '';
+    document.getElementById('categoryName').value = '';
+    document.getElementById('categoryModalTitle').textContent = id ? '📂 编辑专业' : '📂 新增专业';
+    if (id) {
+        const cats = window.allCategories || [];
+        const cat = cats.find(c => c.id == id);
+        if (cat) document.getElementById('categoryName').value = cat.name || '';
+    }
+    Modal.open('categoryModal');
+}
+
+async function saveCategory() {
+    const id = document.getElementById('categoryId').value;
+    const name = document.getElementById('categoryName').value.trim();
+    if (!name) { alert('请输入专业名称'); return; }
+    const payload = { name: name, status: 'ACTIVE' };
+    try {
+        if (id) {
+            await adminApiCall('/categories/' + id, 'PUT', payload);
+            alert('更新成功');
+        } else {
+            await adminApiCall('/categories', 'POST', payload);
+            alert('新增成功');
+        }
+        Modal.close('categoryModal');
+        await loadCategories();
+    } catch (e) {
+        alert('保存失败: ' + (e.message || ''));
+    }
+}
+
+async function toggleCategory(id) {
+    const cats = window.allCategories || [];
+    const cat = cats.find(c => c.id == id);
+    if (!cat) return;
+    const newStatus = cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    try {
+        await adminApiCall('/categories/' + id, 'PUT', { name: cat.name, status: newStatus });
+        await loadCategories();
+    } catch (e) {
+        alert('操作失败: ' + (e.message || ''));
+    }
+}
+
+function renderCategoryTable(cats) {
+    const tbody = document.getElementById('categoryTableBody');
+    if (!tbody) return;
+    if (!cats || cats.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;">暂无分类数据</td></tr>';
+        return;
+    }
+    tbody.innerHTML = cats.map((cat) => {
+        const isActive = cat.status === 'ACTIVE';
+        const statusLabel = isActive ? '启用' : '禁用';
+        const statusClass = isActive ? 'listed' : 'delisted';
+        const toggleLabel = isActive ? '禁用' : '启用';
+        const toggleClass = isActive ? 'btn-danger' : 'btn-pass';
+        const createdTime = cat.createTime ? formatDateTime(cat.createTime) : '-';
+        return '<tr>' +
+            '<td>' + escapeHtml(cat.name || '-') + '</td>' +
+            '<td><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>' +
+            '<td>' + createdTime + '</td>' +
+            '<td>' +
+                '<button class="btn-sm" onclick="openCategoryModal(\'' + cat.id + '\')">编辑</button> ' +
+                '<button class="btn-sm ' + toggleClass + '" onclick="toggleCategory(\'' + cat.id + '\')">' + toggleLabel + '</button>' +
+            '</td></tr>';
+    }).join('');
+}
+
+async function loadCategories() {
+    try {
+        const result = await adminApiCall('/categories', 'GET');
+        window.allCategories = result.data || [];
+        renderCategoryTable(window.allCategories);
+    } catch (e) { console.error('加载分类失败', e); }
+}
+
+function bindCategoryEvents() {
+    // handled by inline onclick
+}
+
+
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', () => {
     initNavUserInfo();
@@ -1645,8 +1859,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initNoticePage();
     initAuditPage();
     initEvaluatePage();
-    initCharts();
     initInventoryPage();
+    initInventoryInPage();
+    initInventoryOutPage();
+    initInventoryCheckPage();
     initBookMgmtPage();
     initCategoryMgmtPage();
     initAdminProfilePage();

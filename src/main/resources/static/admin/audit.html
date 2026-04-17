@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>回收审核 · 管理员 | GLU</title>
+    <title>领取管理 · 管理员 | GLU</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/admin.css">
 </head>
@@ -13,7 +13,7 @@
     <div class="nav-links">
         <a href="/admin/index.html">数据总览</a>
         <a href="/admin/profile.html">个人信息</a>
-        <a href="/admin/audit.html" class="active">回收审核</a>
+        <a href="/admin/audit.html" class="active">领取管理</a>
         <a href="/admin/evaluate.html">评估核算</a>
         <a href="/admin/rule.html">积分规则</a>
         <a href="/admin/inventory-all.html">库存管理</a>
@@ -32,7 +32,12 @@
 <main class="audit-page">
     <div class="pickup-list">
         <div class="pickup-header">
-            <h3 class="section-title">📋 今日待领取清单（教材兑换）</h3>
+            <h3 class="section-title">📋 教材领取记录</h3>
+            <div class="pickup-stats">
+                <span class="stat-badge">总计: <strong id="pickupTotal">0</strong> 条</span>
+                <span class="stat-badge pending-badge">待领取: <strong id="pickupPending">0</strong></span>
+                <span class="stat-badge completed-badge">已领取: <strong id="pickupCompleted">0</strong></span>
+            </div>
             <div class="pickup-filters">
                 <div class="filter-group">
                     <span class="filter-label">状态筛选：</span>
@@ -55,7 +60,7 @@
                 <tr>
                     <th>学生（学号）</th>
                     <th>图片</th>
-                    <th>名称</th>
+                    <th>教材名称</th>
                     <th>积分</th>
                     <th>时间</th>
                     <th>状态</th>
@@ -65,11 +70,6 @@
                 <tbody id="pickupBody">
                 </tbody>
             </table>
-        </div>
-        <div class="pickup-stats">
-            <span class="stat-badge">总计: <strong id="pickupTotal">0</strong> 条</span>
-            <span class="stat-badge pending-badge">待领取: <strong id="pickupPending">0</strong></span>
-            <span class="stat-badge completed-badge">已领取: <strong id="pickupCompleted">0</strong></span>
         </div>
     </div>
 </main>

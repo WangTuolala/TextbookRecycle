@@ -44,11 +44,16 @@
                 <button class="btn-secondary" onclick="resetPickupFilters()">重置筛选</button>
             </div>
         </div>
+        <div class="pickup-stats">
+            <span class="stat-badge">总计: <strong id="pickupTotal">0</strong> 条</span>
+            <span class="stat-badge pending-badge">待领取: <strong id="pickupPending">0</strong></span>
+            <span class="stat-badge completed-badge">已领取: <strong id="pickupCompleted">0</strong></span>
+        </div>
         <div class="records-table-wrapper">
             <table class="data-table" id="pickupTable">
                 <thead>
                 <tr>
-                    <th>学生（学号）</th>
+                    <th>学生</th>
                     <th>图片</th>
                     <th>名称</th>
                     <th>积分</th>
@@ -60,11 +65,6 @@
                 <tbody id="pickupBody">
                 </tbody>
             </table>
-        </div>
-        <div class="pickup-stats">
-            <span class="stat-badge">总计: <strong id="pickupTotal">0</strong> 条</span>
-            <span class="stat-badge pending-badge">待领取: <strong id="pickupPending">0</strong></span>
-            <span class="stat-badge completed-badge">已领取: <strong id="pickupCompleted">0</strong></span>
         </div>
     </div>
 </main>

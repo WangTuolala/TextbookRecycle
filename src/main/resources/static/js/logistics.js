@@ -13,13 +13,20 @@ async function logisticsApiCall(endpoint, method, body) {
 // ==================== 领取管理页面功能 ====================
 async function loadPickupList() {
     try {
-        const result = await logisticsApiCall('/exchanges/pending', 'GET');
-        window.pendingExchanges = result.data || [];
-        renderPickupTable(window.pendingExchanges);
+        const [pendingResult, completedResult] = await Promise.all([
+            logisticsApiCall('/exchanges/pending', 'GET'),
+            logisticsApiCall('/exchanges/completed', 'GET')
+        ]);
+        window.pendingExchanges = pendingResult.data || [];
+        window.completedExchanges = completedResult.data || [];
+        window.allExchanges = [...window.pendingExchanges, ...window.completedExchanges];
+        renderPickupTable(window.allExchanges);
         updatePickupStats();
     } catch (error) {
         console.error('加载领取列表失败:', error);
         window.pendingExchanges = [];
+        window.completedExchanges = [];
+        window.allExchanges = [];
     }
 }
 
@@ -28,22 +35,31 @@ function renderPickupTable(exchanges) {
     if (!tbody) return;
 
     if (exchanges.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无待领取记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无领取记录</td></tr>';
         return;
     }
 
-    tbody.innerHTML = exchanges.map((ex, index) => `
-        <tr data-status="${ex.status}" data-student="${ex.studentName || ''}" data-prize="${ex.prizeName || ''}">
-            <td>${ex.studentName || '-'}</td>
-            <td>${ex.studentId || '-'}</td>
+    const defaultIcons = { '甜点券': '🍰', '笔记本套装': '📓', '帆布袋': '👜', '文具礼包': '✏️', '咖啡券': '☕' };
+
+    tbody.innerHTML = exchanges.map(ex => {
+        const icon = defaultIcons[ex.prizeName] || '🎁';
+        const imgSrc = ex.imageData || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Crect width='50' height='50' fill='%23e1eff8' rx='10'/%3E%3Ctext x='25' y='33' text-anchor='middle' fill='%231e6d8f' font-size='24'%3E${encodeURIComponent(icon)}%3C/text%3E%3C/svg%3E`;
+        const statusBadge = ex.status === 'COMPLETED'
+            ? '<span class="status-badge completed">已领取</span>'
+            : '<span class="status-badge pending">待领取</span>';
+        const actionBtn = ex.status === 'PENDING'
+            ? `<button class="btn-sm btn-pass" onclick="confirmPickup(${ex.id})">确认领取</button>`
+            : '-';
+        return `<tr data-status="${ex.status}" data-student="${ex.studentName || ''}" data-prize="${ex.prizeName || ''}">
+            <td><a href="javascript:void(0)" class="student-link" onclick="showStudentInfo(${ex.studentId})">${escapeHtml(ex.studentName || '-')}</a></td>
+            <td class="prize-img-cell"><img src="${imgSrc}" alt="" class="prize-table-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 50 50\'%3E%3Crect width=\'50\' height=\'50\' fill=\'%23e1eff8\' rx=\'10\'/%3E%3Ctext x=\'25\' y=\'33\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'24\'%3E🎁%3C/text%3E%3C/svg%3E'"></td>
             <td>${escapeHtml(ex.prizeName || '-')}</td>
             <td>${ex.points || 0}</td>
-            <td>${ex.quantity || 1}</td>
             <td>${formatDate(ex.exchangeTime)}</td>
-            <td><span class="status-badge pending">待领取</span></td>
-            <td><button class="btn-sm btn-pass" onclick="confirmPickup(${ex.id})">确认领取</button></td>
-        </tr>
-    `).join('');
+            <td>${statusBadge}</td>
+            <td>${actionBtn}</td>
+        </tr>`;
+    }).join('');
 }
 
 async function confirmPickup(id) {
@@ -52,7 +68,6 @@ async function confirmPickup(id) {
         await logisticsApiCall(`/exchanges/${id}/pickup`, 'POST');
         alert('确认成功！');
         await loadPickupList();
-        // 同时刷新奖品统计中的已领取数量
         if (document.getElementById('prizeTableBody')) {
             await loadPrizes();
         }
@@ -61,18 +76,36 @@ async function confirmPickup(id) {
     }
 }
 
+window.showStudentInfo = async function(studentId) {
+    try {
+        const result = await apiCall(`/admin/users/${studentId}`, 'GET');
+        const u = result.data;
+        if (!u) return;
+        const content = document.getElementById('studentInfoContent');
+        if (content) {
+            content.innerHTML = `
+                <div class="student-info-row"><span class="student-info-label">学号：</span><span class="student-info-value">${escapeHtml(u.username || '-')}</span></div>
+                <div class="student-info-row"><span class="student-info-label">姓名：</span><span class="student-info-value">${escapeHtml(u.name || '-')}</span></div>
+                <div class="student-info-row"><span class="student-info-label">学院：</span><span class="student-info-value">${escapeHtml(u.college || '-')}</span></div>
+                <div class="student-info-row"><span class="student-info-label">专业：</span><span class="student-info-value">${escapeHtml(u.major || '-')}</span></div>
+                <div class="student-info-row"><span class="student-info-label">班级：</span><span class="student-info-value">${escapeHtml(u.className || '-')}</span></div>
+                <div class="student-info-row"><span class="student-info-label">联系电话：</span><span class="student-info-value">${escapeHtml(u.phone || '-')}</span></div>
+                <div class="student-info-row"><span class="student-info-label">当前积分：</span><span class="student-info-value">${u.points ?? 0}</span></div>`;
+        }
+        Modal.open('studentInfoModal');
+    } catch (error) {
+        alert('获取学生信息失败');
+    }
+};
+
 function updatePickupStats() {
-    const rows = document.querySelectorAll('#pickupBody tr');
-    let pending = 0, completed = 0;
-    rows.forEach(row => {
-        const status = row.getAttribute('data-status');
-        if (status === 'PENDING') pending++;
-        else if (status === 'COMPLETED') completed++;
-    });
+    const all = window.allExchanges || [];
+    const pending = all.filter(ex => ex.status === 'PENDING').length;
+    const completed = all.filter(ex => ex.status === 'COMPLETED').length;
     const totalEl = document.getElementById('pickupTotal');
     const pendingEl = document.getElementById('pickupPending');
     const completedEl = document.getElementById('pickupCompleted');
-    if (totalEl) totalEl.innerText = rows.length;
+    if (totalEl) totalEl.innerText = all.length;
     if (pendingEl) pendingEl.innerText = pending;
     if (completedEl) completedEl.innerText = completed;
 }
@@ -80,12 +113,11 @@ function updatePickupStats() {
 function filterPickupList() {
     const statusFilter = document.getElementById('statusFilter')?.value || 'all';
     const searchTerm = document.getElementById('searchPickup')?.value.toLowerCase() || '';
-    const exchanges = window.pendingExchanges || [];
+    const exchanges = window.allExchanges || [];
 
     let filtered = [...exchanges];
-    if (statusFilter !== 'all') {
-        filtered = filtered.filter(ex => ex.status === statusFilter);
-    }
+    if (statusFilter === 'pending') filtered = filtered.filter(ex => ex.status === 'PENDING');
+    else if (statusFilter === 'completed') filtered = filtered.filter(ex => ex.status === 'COMPLETED');
     if (searchTerm) {
         filtered = filtered.filter(ex =>
             (ex.studentName && ex.studentName.toLowerCase().includes(searchTerm)) ||
@@ -104,7 +136,7 @@ function resetPickupFilters() {
     const searchInput = document.getElementById('searchPickup');
     if (statusFilter) statusFilter.value = 'all';
     if (searchInput) searchInput.value = '';
-    renderPickupTable(window.pendingExchanges || []);
+    renderPickupTable(window.allExchanges || []);
 }
 
 function updateVisibleStats() {
@@ -180,20 +212,15 @@ window.viewStudentInfo = async function(studentId, studentName) {
 // ==================== 奖品管理页面功能 ====================
 async function loadPrizes() {
     try {
-        const [prizesResult, pendingResult, completedResult] = await Promise.all([
-            logisticsApiCall('/prizes', 'GET'),
-            logisticsApiCall('/exchanges/pending', 'GET'),
-            logisticsApiCall('/exchanges/completed', 'GET')
-        ]);
+        const prizesResult = await logisticsApiCall('/prizes', 'GET');
+        const completedResult = await logisticsApiCall('/exchanges/completed', 'GET');
         window.prizes = prizesResult.data || [];
-        window.pendingExchanges = pendingResult.data || [];
         window.completedExchanges = completedResult.data || [];
         renderPrizeTable();
         updatePrizeStats();
     } catch (error) {
         console.error('加载奖品失败:', error);
         window.prizes = [];
-        window.pendingExchanges = [];
         window.completedExchanges = [];
     }
 }
@@ -217,21 +244,30 @@ function renderPrizeTable() {
             <td>${escapeHtml(prize.name)}</td>
             <td>${prize.points}</td>
             <td><span class="stock-num">${prize.stock}</span></td>
-            <td><button class="delete-btn" onclick="deletePrize(${prize.id})">删除</button></td>
+            <td>
+                <button class="edit-btn" onclick="openEditPrizeModal(${prize.id})">编辑</button>
+                <button class="delete-btn" onclick="deletePrize(${prize.id})">删除</button>
+            </td>
         </tr>`;
     }).join('');
 }
 
 function updatePrizeStats() {
+    const completed = window.completedExchanges || [];
     const totalEl = document.getElementById('totalCount');
-    const pendingEl = document.getElementById('pendingCount');
-    const completedEl = document.getElementById('completedCount');
     const mostPopularEl = document.getElementById('mostPopular');
-    
-    if (totalEl) totalEl.innerText = window.prizes?.length || 0;
-    if (pendingEl) pendingEl.innerText = window.pendingExchanges?.length || 0;
-    if (completedEl) completedEl.innerText = window.completedExchanges?.length || 0;
-    if (mostPopularEl) mostPopularEl.innerText = window.prizes?.[0]?.name || '-';
+
+    if (totalEl) totalEl.innerText = completed.reduce((sum, ex) => sum + (ex.quantity || 1), 0);
+
+    if (mostPopularEl) {
+        const countMap = {};
+        completed.forEach(ex => {
+            const name = ex.prizeName || '未知';
+            countMap[name] = (countMap[name] || 0) + (ex.quantity || 1);
+        });
+        const sorted = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
+        mostPopularEl.innerText = sorted.length > 0 ? sorted[0][0] + ' (' + sorted[0][1] + '次)' : '-';
+    }
 }
 
 window.addNewPrize = function() {
@@ -243,6 +279,7 @@ window.addNewPrize = function() {
     if (!name) { alert('请填写奖品名称'); return; }
     if (isNaN(points) || points < 0) { alert('请填写有效的所需积分'); return; }
     if (isNaN(stock) || stock < 0) { alert('请填写有效的库存数量'); return; }
+    if (!imageFile) { alert('请上传奖品图片'); return; }
 
     let imageData = null;
     if (imageFile) {
@@ -274,6 +311,51 @@ window.deletePrize = async function(id) {
     try {
         await logisticsApiCall(`/prizes/${id}`, 'DELETE');
         alert('删除成功');
+        await loadPrizes();
+    } catch (error) {
+        alert(error.message);
+    }
+};
+
+window.openEditPrizeModal = function(id) {
+    const prize = window.prizes.find(p => p.id === id);
+    if (!prize) return;
+    document.getElementById('editPrizeId').value = prize.id;
+    document.getElementById('editPrizeName').value = prize.name || '';
+    document.getElementById('editPrizePoints').value = prize.points || 0;
+    document.getElementById('editPrizeStock').value = prize.stock || 0;
+    const previewImg = document.querySelector('#editPrizePreview img');
+    if (previewImg) {
+        previewImg.src = prize.imageData || previewImg.src;
+    }
+    document.getElementById('editPrizeImage').value = '';
+    Modal.open('editPrizeModal');
+};
+
+window.saveEditPrize = async function() {
+    const id = parseInt(document.getElementById('editPrizeId').value);
+    const name = document.getElementById('editPrizeName')?.value.trim();
+    const points = parseInt(document.getElementById('editPrizePoints')?.value);
+    const stock = parseInt(document.getElementById('editPrizeStock')?.value);
+    const imageFile = document.getElementById('editPrizeImage')?.files[0];
+
+    if (!name) { alert('请填写奖品名称'); return; }
+    if (isNaN(points) || points < 0) { alert('请填写有效的所需积分'); return; }
+    if (isNaN(stock) || stock < 0) { alert('请填写有效的库存数量'); return; }
+
+    let imageData = window.prizes.find(p => p.id === id)?.imageData || null;
+    if (imageFile) {
+        imageData = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.readAsDataURL(imageFile);
+        });
+    }
+
+    try {
+        await logisticsApiCall(`/prizes/${id}`, 'PUT', { name, points, stock, imageData });
+        alert('修改成功');
+        Modal.close('editPrizeModal');
         await loadPrizes();
     } catch (error) {
         alert(error.message);
@@ -396,8 +478,8 @@ function listenToRuleUpdates() {
 async function loadAnnouncementsAndNotices() {
     try {
         const [annResult, locationResult] = await Promise.all([
-            logisticsApiCall('/announcements', 'GET'),
-            logisticsApiCall('/location-notices', 'GET')
+            apiCall('/admin/announcements', 'GET'),
+            apiCall('/admin/location-notices?role=LOGISTICS', 'GET')
         ]);
         window.announcements = annResult.data || [];
         window.locationNotices = locationResult.data || [];
@@ -450,13 +532,12 @@ function renderAnnouncementHistory(searchTerm = '') {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无公告记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">暂无公告记录</td></tr>';
         return;
     }
 
-    tbody.innerHTML = filtered.map((item, index) => `
+    tbody.innerHTML = filtered.map((item) => `
         <tr>
-            <td style="text-align: center;">${index + 1}</td>
             <td style="text-align: left;">${escapeHtml(item.title)}</td>
             <td style="text-align: left;">${escapeHtml((item.content || '').substring(0, 100))}...</td>
             <td style="text-align: center;">${formatDate(item.publishTime)}</td>
@@ -477,7 +558,7 @@ function renderLocationHistory(searchTerm = '') {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">暂无记录</td></tr>';
         return;
     }
 
@@ -485,7 +566,6 @@ function renderLocationHistory(searchTerm = '') {
         const statusClass = item.isActive ? 'status-active' : 'status-inactive';
         const statusText = item.isActive ? '✅ 当前生效' : '📄 历史版本';
         return `<tr>
-            <td style="text-align: center;">${index + 1}</td>
             <td style="text-align: left;">${escapeHtml(item.location)}</td>
             <td style="text-align: left;">${escapeHtml((item.notice || '').substring(0, 80))}...</td>
             <td style="text-align: center;">${formatDate(item.publishTime)}</td>
@@ -559,12 +639,11 @@ function initProfilePage() {
 function saveLogisticsProfile() {
     const name = document.getElementById('logiProfileName')?.value || '';
     const dept = document.getElementById('logiProfileDept')?.value || '';
-    const position = document.getElementById('logiProfilePosition')?.value || '';
-    const year = document.getElementById('logiProfileYear')?.value || '';
+const year = document.getElementById('logiProfileYear')?.value || '';
     const phone = document.getElementById('logiProfilePhone')?.value || '';
     const workplace = document.getElementById('logiProfileWorkplace')?.value || '';
     
-    sessionStorage.setItem('logisticsProfile', JSON.stringify({ name, dept, position, year, phone, workplace }));
+    sessionStorage.setItem('logisticsProfile', JSON.stringify({ name, dept, year, phone, workplace }));
     
     // 同时更新 currentUser，这样导航栏也会显示新名字
     const currentUser = getCurrentUser();
@@ -574,13 +653,12 @@ function saveLogisticsProfile() {
     }
     
     const rows = document.querySelectorAll('.profile-info-grid .info-value');
-    if (rows.length >= 7) {
+    if (rows.length >= 6) {
         rows[1].innerText = name || '-';
         rows[2].innerText = dept || '-';
-        rows[3].innerText = position || '-';
-        rows[4].innerText = year ? year + '年' : '-';
-        rows[5].innerText = phone || '-';
-        rows[6].innerText = workplace || '-';
+        rows[3].innerText = year ? year + '年' : '-';
+        rows[4].innerText = phone || '-';
+        rows[5].innerText = workplace || '-';
     }
     
     const navUserName = document.querySelector('.nav-user-info');
@@ -600,17 +678,15 @@ function loadLogisticsProfile() {
         try {
             const p = JSON.parse(saved);
             const rows = document.querySelectorAll('.profile-info-grid .info-value');
-            if (rows.length >= 7) {
+            if (rows.length >= 6) {
                 rows[1].innerText = p.name || '-';
                 rows[2].innerText = p.dept || '-';
-                rows[3].innerText = p.position || '-';
-                rows[4].innerText = p.year ? p.year + '年' : '-';
-                rows[5].innerText = p.phone || '-';
-                rows[6].innerText = p.workplace || '-';
+                rows[3].innerText = p.year ? p.year + '年' : '-';
+                rows[4].innerText = p.phone || '-';
+                rows[5].innerText = p.workplace || '-';
             }
             if (document.getElementById('logiProfileName')) document.getElementById('logiProfileName').value = p.name || '';
             if (document.getElementById('logiProfileDept')) document.getElementById('logiProfileDept').value = p.dept || '';
-            if (document.getElementById('logiProfilePosition')) document.getElementById('logiProfilePosition').value = p.position || '';
             if (document.getElementById('logiProfileYear')) document.getElementById('logiProfileYear').value = p.year || '';
             if (document.getElementById('logiProfilePhone')) document.getElementById('logiProfilePhone').value = p.phone || '';
             if (document.getElementById('logiProfileWorkplace')) document.getElementById('logiProfileWorkplace').value = p.workplace || '';
