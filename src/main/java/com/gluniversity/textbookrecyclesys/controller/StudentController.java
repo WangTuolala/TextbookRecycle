@@ -19,6 +19,7 @@ public class StudentController {
     private final PrizeService prizeService;
     private final AnnouncementService announcementService;
     private final NotificationService notificationService;
+    private final CategoryService categoryService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<User>> register(@RequestBody RegisterRequest request) {
@@ -70,6 +71,18 @@ public class StudentController {
             books = bookService.getAllBooks();
         }
         return ResponseEntity.ok(ApiResponse.success(books));
+    }
+
+    @GetMapping("/majors")
+    public ResponseEntity<ApiResponse<List<String>>> getMajors() {
+        return ResponseEntity.ok(ApiResponse.success(bookService.getAllListedMajors()));
+    }
+
+    @GetMapping("/majors-status")
+    public ResponseEntity<ApiResponse<List<Map<String, String>>>> getMajorsWithStatus() {
+        return ResponseEntity.ok(ApiResponse.success(categoryService.getAllCategories().stream()
+                .map(c -> Map.of("name", c.getName() != null ? c.getName() : "", "status", c.getStatus() != null ? c.getStatus() : "ACTIVE"))
+                .toList()));
     }
 
     @GetMapping("/books/{id}")
@@ -155,8 +168,15 @@ public class StudentController {
     }
 
     @GetMapping("/announcements")
-    public ResponseEntity<ApiResponse<List<Announcement>>> getAnnouncements() {
-        return ResponseEntity.ok(ApiResponse.success(announcementService.getAllAnnouncements()));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAnnouncements(
+            @RequestHeader("X-User-Id") Long studentId) {
+        List<Announcement> announcements = announcementService.getAllAnnouncements();
+        List<Long> readIds = announcementService.getReadAnnouncementIds(studentId);
+        Map<String, Object> result = Map.of(
+                "announcements", announcements,
+                "readIds", readIds
+        );
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @GetMapping("/notices")
@@ -167,6 +187,29 @@ public class StudentController {
     @GetMapping("/location-notice")
     public ResponseEntity<ApiResponse<LocationNotice>> getLocationNotice() {
         return ResponseEntity.ok(ApiResponse.success(announcementService.getActiveLocationNotice()));
+    }
+
+    @PostMapping("/announcements/{id}/read")
+    public ResponseEntity<ApiResponse<Void>> markAnnouncementAsRead(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long studentId) {
+        announcementService.markAnnouncementAsRead(studentId, id);
+        return ResponseEntity.ok(ApiResponse.success("已读", null));
+    }
+
+    @GetMapping("/location-notice/read-ids")
+    public ResponseEntity<ApiResponse<List<Long>>> getLocationNoticeReadIds(
+            @RequestHeader("X-User-Id") Long studentId) {
+        List<Long> readIds = announcementService.getReadLocationNoticeIds(studentId);
+        return ResponseEntity.ok(ApiResponse.success(readIds));
+    }
+
+    @PostMapping("/location-notice/{id}/read")
+    public ResponseEntity<ApiResponse<Void>> markLocationNoticeAsRead(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long studentId) {
+        announcementService.markLocationNoticeAsRead(studentId, id);
+        return ResponseEntity.ok(ApiResponse.success("已读", null));
     }
 
     @GetMapping("/location-notice/admin")

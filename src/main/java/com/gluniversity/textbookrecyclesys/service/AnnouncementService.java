@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +17,7 @@ public class AnnouncementService {
     private final AnnouncementRepository announcementRepository;
     private final NoticeRepository noticeRepository;
     private final LocationNoticeRepository locationNoticeRepository;
+    private final AnnouncementReadRepository announcementReadRepository;
 
     public List<Announcement> getAllAnnouncements() {
         return announcementRepository.findByOrderByPublishTimeDesc();
@@ -68,15 +70,13 @@ public class AnnouncementService {
     }
 
     public LocationNotice publishLocationNotice(String location, String notice, String publisher, String publisherRole) {
-        // 解码前端编码的 operatorName
         String decodedPublisher = publisher;
         try {
             decodedPublisher = URLDecoder.decode(publisher, StandardCharsets.UTF_8.toString());
         } catch (Exception e) {
             // 解码失败使用原始值
         }
-        
-        // 只禁用同角色的旧公告（管理员只覆盖管理员，后勤只覆盖后勤）
+
         locationNoticeRepository.findByIsActiveTrueAndPublisherRole(publisherRole)
                 .ifPresent(old -> {
                     old.setIsActive(false);
@@ -102,5 +102,27 @@ public class AnnouncementService {
             return locationNoticeRepository.findAll();
         }
         return locationNoticeRepository.findByPublisherRoleOrderByPublishTimeDesc(publisherRole);
+    }
+
+    // ==================== 已读状态管理 ====================
+
+    @Transactional
+    public void markAnnouncementAsRead(Long studentId, Long announcementId) {
+        announcementReadRepository.markAsRead(studentId, announcementId, "ANNOUNCEMENT");
+    }
+
+    @Transactional
+    public void markLocationNoticeAsRead(Long studentId, Long noticeId) {
+        announcementReadRepository.markAsRead(studentId, noticeId, "LOCATION_NOTICE");
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> getReadAnnouncementIds(Long studentId) {
+        return announcementReadRepository.findReadAnnouncementIds(studentId, "ANNOUNCEMENT");
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> getReadLocationNoticeIds(Long studentId) {
+        return announcementReadRepository.findReadAnnouncementIds(studentId, "LOCATION_NOTICE");
     }
 }

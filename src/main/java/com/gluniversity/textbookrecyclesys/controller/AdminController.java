@@ -107,7 +107,7 @@ public class AdminController {
     // ===== 书籍管理 =====
     @GetMapping("/books")
     public ResponseEntity<ApiResponse<List<Book>>> getAllBooks() {
-        return ResponseEntity.ok(ApiResponse.success(bookService.getAllBooks()));
+        return ResponseEntity.ok(ApiResponse.success(bookService.getAllBooksAdmin()));
     }
 
     @PostMapping("/books")

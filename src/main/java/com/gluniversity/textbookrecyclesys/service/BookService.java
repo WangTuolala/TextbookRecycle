@@ -48,11 +48,24 @@ public class BookService {
     }
 
     public List<Book> getAllBooks() {
+        return bookRepository.findByStatus("LISTED");
+    }
+
+    public List<Book> getAllBooksAdmin() {
         return bookRepository.findAll();
     }
 
     public List<Book> getBooksByMajor(String major) {
         return bookRepository.findByStatusAndMajor("LISTED", major);
+    }
+
+    public List<String> getAllListedMajors() {
+        return bookRepository.findByStatus("LISTED").stream()
+                .map(Book::getMajor)
+                .filter(m -> m != null && !m.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     public Optional<Book> getBookById(Long id) {

@@ -787,7 +787,9 @@ async function loadBooksForMgmt() {
 async function loadCategoriesForBookForm() {
     try {
         const result = await adminApiCall('/categories', 'GET');
-        const categories = result.data || [];
+        const allCategories = result.data || [];
+        // 只加载 ACTIVE（启用）的专业用于下拉选择
+        const activeCategories = allCategories.filter(c => c.status === 'ACTIVE');
         const selects = [
             document.getElementById('bookMajorFilter'),
             document.getElementById('bookMajor')
@@ -795,8 +797,15 @@ async function loadCategoriesForBookForm() {
         selects.forEach(sel => {
             if (!sel) return;
             const currentVal = sel.value;
-            sel.innerHTML = '<option value="">全部专业</option>' +
-                categories.map(c => '<option value="' + c.name + '">' + c.name + '</option>').join('');
+            // bookMajorFilter 用全部，bookMajor 只用启用的
+            const isFilter = sel.id === 'bookMajorFilter';
+            const list = isFilter ? allCategories : activeCategories;
+            sel.innerHTML = '<option value="">' + (isFilter ? '全部专业' : '请选择专业') + '</option>' +
+                list.map(c => {
+                    const disabled = (!isFilter && c.status !== 'ACTIVE') ? ' disabled' : '';
+                    const label = c.status !== 'ACTIVE' ? c.name + '（已禁用）' : c.name;
+                    return '<option value="' + c.name + '"' + disabled + '>' + label + '</option>';
+                }).join('');
             sel.value = currentVal;
         });
     } catch (error) {
@@ -826,6 +835,7 @@ function openBookModal(book) {
     document.getElementById('coverPreview').innerHTML = '';
     document.getElementById('bookPointsDisplay').innerText = '—';
     document.getElementById('bookPoints').value = '0';
+    document.getElementById('bookStatus').value = 'LISTED';
     document.getElementById('bookModalTitle').innerText = '📖 新增书籍';
     document.getElementById('bookCoverFile').required = true;
 
@@ -854,6 +864,7 @@ function openBookModal(book) {
 
 function openBookModalWithPrefill(prefill) {
     openBookModal();
+    document.getElementById('bookStatus').value = 'LISTED';
     if (prefill.name) document.getElementById('bookName').value = prefill.name;
     if (prefill.author) document.getElementById('bookAuthor').value = prefill.author;
     if (prefill.publisher) document.getElementById('bookPublisher').value = prefill.publisher;
@@ -1149,6 +1160,15 @@ window.saveBook = async function() {
 // ==================== 书籍管理页面 ====================
 async function initBookMgmtPage() {
     if (!document.querySelector('.book-mgmt-main')) return;
+
+    // 页面加载时强制重置筛选条件，避免残留状态导致书籍不显示
+    const statusFilterEl = document.getElementById('bookStatusFilter');
+    const majorFilterEl = document.getElementById('bookMajorFilter');
+    const searchInputEl = document.getElementById('bookSearchInput');
+    if (statusFilterEl) statusFilterEl.value = 'all';
+    if (majorFilterEl) majorFilterEl.value = 'all';
+    if (searchInputEl) searchInputEl.value = '';
+
     await Promise.all([
         loadBooksForMgmt(),
         loadCategoriesForBookForm(),

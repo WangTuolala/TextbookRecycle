@@ -118,6 +118,7 @@ public class RecycleService {
         evaluation.setSelfCondition(appointment.getCondition());
         evaluation.setAdminCondition(adminCondition);
         evaluation.setPoints(points);
+        evaluation.setQuantity(appointment.getQuantity() != null ? appointment.getQuantity() : 1);
         evaluation.setCoverImage(appointment.getCoverImage());
         evaluation.setRemark(appointment.getRemark());
         evaluation.setStatus("APPROVED");
@@ -166,8 +167,9 @@ public class RecycleService {
             throw new RuntimeException("只能同步已通过的评估");
         }
 
-        userService.addPoints(evaluation.getStudentId(), evaluation.getPoints(),
-                "REYCLE", evaluation.getBookName(), "BOOK");
+        int totalPoints = evaluation.getPoints() * (evaluation.getQuantity() != null ? evaluation.getQuantity() : 1);
+        userService.addPoints(evaluation.getStudentId(), totalPoints,
+                "REYCLE", evaluation.getBookName() + " x" + evaluation.getQuantity(), "BOOK");
         
         evaluation.setStatus("SYNCED");
         evaluationRepository.save(evaluation);
@@ -184,7 +186,7 @@ public class RecycleService {
         book.setIsbn(evaluation.getIsbn());
         book.setCondition(evaluation.getAdminCondition());
         book.setPoints(evaluation.getPoints());
-        book.setStock(1);
+        book.setStock(evaluation.getQuantity() != null ? evaluation.getQuantity() : 1);
         book.setCoverImage(evaluation.getCoverImage());
         book.setMajor("通用");
         book.setStatus("LISTED");
@@ -196,7 +198,7 @@ public class RecycleService {
         record.setBookId(book.getId());
         record.setBookName(book.getName());
         record.setType("IN");
-        record.setQuantity(1);
+        record.setQuantity(evaluation.getQuantity() != null ? evaluation.getQuantity() : 1);
         record.setOperator(operatorName != null ? operatorName : "系统");
         record.setRemark("评估上架: " + evaluation.getBookName());
         record.setCreateTime(LocalDateTime.now());

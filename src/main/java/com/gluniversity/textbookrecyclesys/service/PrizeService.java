@@ -83,7 +83,7 @@ public class PrizeService {
 
     public List<PrizeExchange> getExchangesByStudent(Long studentId) {
         return exchangeRepository.findAll().stream()
-                .filter(ex -> ex.getStudentId().equals(studentId) && "COMPLETED".equals(ex.getStatus()))
+                .filter(ex -> ex.getStudentId().equals(studentId) && !"REJECTED".equals(ex.getStatus()))
                 .sorted((a, b) -> b.getExchangeTime().compareTo(a.getExchangeTime()))
                 .toList();
     }

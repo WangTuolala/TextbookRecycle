@@ -55,6 +55,33 @@
     </div>
 </div>
 
+<!-- 奖品详情兑换弹窗 -->
+<div id="prizeExchangeModal" class="modal">
+    <div class="modal-content" style="max-width:400px;">
+        <span class="close-btn" onclick="Modal.close('prizeExchangeModal')">&times;</span>
+        <h3 id="prizeExchangeTitle">🎁 兑换奖品</h3>
+        <div class="prize-exchange-detail">
+            <div class="prize-exchange-img" id="prizeExchangeImg"></div>
+            <div class="prize-exchange-info">
+                <div class="prize-exchange-name" id="prizeExchangeName"></div>
+                <div class="prize-exchange-points" id="prizeExchangePoints"></div>
+                <div class="prize-exchange-stock" id="prizeExchangeStock"></div>
+            </div>
+        </div>
+        <div class="prize-exchange-form">
+            <div class="form-group">
+                <label>兑换数量：</label>
+                <input type="number" id="prizeExchangeQuantity" value="1" min="1" max="10">
+            </div>
+            <div class="prize-exchange-total" id="prizeExchangeTotal"></div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-secondary" onclick="Modal.close('prizeExchangeModal')">取消</button>
+            <button type="button" class="btn-primary" id="prizeExchangeConfirmBtn">确认兑换</button>
+        </div>
+    </div>
+</div>
+
 <script src="/js/common.js"></script>
 <script src="/js/student.js"></script>
 </body>
