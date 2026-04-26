@@ -33,27 +33,19 @@ function onRoleChange() {
 }
 
 function updateRequiredFields(role) {
-    const studentIdRequired = document.getElementById('studentIdRequired');
-    const studentNameRequired = document.getElementById('studentNameRequired');
-    if (role === 'student') {
-        if (studentIdRequired) studentIdRequired.style.display = 'inline';
-        if (studentNameRequired) studentNameRequired.style.display = 'inline';
-    } else {
-        if (studentIdRequired) studentIdRequired.style.display = 'none';
-        if (studentNameRequired) studentNameRequired.style.display = 'none';
-    }
+    // 所有字段已在HTML中标记为必填，无需动态处理
 }
 
 function resetProfileForms() {
-    ['studentId', 'studentName', 'studentCollege', 'studentMajor', 'studentClass', 'studentYear', 'studentPhone'].forEach(id => {
+    ['studentId', 'studentName', 'studentCollege', 'studentMajor', 'studentClass', 'studentPhone'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
-    ['adminId', 'adminName', 'adminDept', 'adminPosition', 'adminYear', 'adminPhone', 'adminWorkplace'].forEach(id => {
+    ['adminId', 'adminName', 'adminDept', 'adminYear', 'adminPhone', 'adminWorkplace'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
-    ['logisticsId', 'logisticsName', 'logisticsDept', 'logisticsPosition', 'logisticsYear', 'logisticsPhone', 'logisticsWorkplace'].forEach(id => {
+    ['logisticsId', 'logisticsName', 'logisticsDept', 'logisticsYear', 'logisticsPhone', 'logisticsWorkplace'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -106,8 +98,16 @@ function validateProfile(role) {
     if (role === 'student') {
         const studentId = document.getElementById('studentId')?.value.trim();
         const studentName = document.getElementById('studentName')?.value.trim();
+        const college = document.getElementById('studentCollege')?.value.trim();
+        const major = document.getElementById('studentMajor')?.value.trim();
+        const cls = document.getElementById('studentClass')?.value.trim();
+        const phone = document.getElementById('studentPhone')?.value.trim();
         if (!studentId) { showMessage('请填写学号'); return false; }
         if (!studentName) { showMessage('请填写姓名'); return false; }
+        if (!college) { showMessage('请填写学院'); return false; }
+        if (!major) { showMessage('请填写专业'); return false; }
+        if (!cls) { showMessage('请填写班级'); return false; }
+        if (!phone) { showMessage('请填写联系电话'); return false; }
         if (studentId.length < 5) { showMessage('学号长度不能少于5位'); return false; }
         return true;
     } else if (role === 'admin' || role === 'logistics') {
@@ -115,14 +115,12 @@ function validateProfile(role) {
         const id = document.getElementById(prefix + 'Id')?.value.trim();
         const name = document.getElementById(prefix + 'Name')?.value.trim();
         const dept = document.getElementById(prefix + 'Dept')?.value.trim();
-        const position = document.getElementById(prefix + 'Position')?.value.trim();
         const year = document.getElementById(prefix + 'Year')?.value.trim();
         const phone = document.getElementById(prefix + 'Phone')?.value.trim();
         const workplace = document.getElementById(prefix + 'Workplace')?.value.trim();
         if (!id) { showMessage('请填写工号'); return false; }
         if (!name) { showMessage('请填写姓名'); return false; }
         if (!dept) { showMessage('请填写部门'); return false; }
-        if (!position) { showMessage('请填写岗位'); return false; }
         if (!year) { showMessage('请填写入职年份'); return false; }
         if (!phone) { showMessage('请填写联系电话'); return false; }
         if (!workplace) { showMessage('请填写工作地点'); return false; }
@@ -153,13 +151,11 @@ function collectProfile(role) {
         profile.college = document.getElementById('studentCollege')?.value.trim() || '';
         profile.major = document.getElementById('studentMajor')?.value.trim() || '';
         profile.class = document.getElementById('studentClass')?.value.trim() || '';
-        profile.year = document.getElementById('studentYear')?.value.trim() || '';
         profile.phone = document.getElementById('studentPhone')?.value.trim() || '';
     } else if (role === 'admin') {
         profile.adminId = document.getElementById('adminId')?.value.trim() || '';
         profile.name = document.getElementById('adminName')?.value.trim() || '';
         profile.dept = document.getElementById('adminDept')?.value.trim() || '';
-        profile.position = document.getElementById('adminPosition')?.value.trim() || '';
         profile.year = document.getElementById('adminYear')?.value.trim() || '';
         profile.phone = document.getElementById('adminPhone')?.value.trim() || '';
         profile.workplace = document.getElementById('adminWorkplace')?.value.trim() || '';
@@ -167,7 +163,6 @@ function collectProfile(role) {
         profile.logisticsId = document.getElementById('logisticsId')?.value.trim() || '';
         profile.name = document.getElementById('logisticsName')?.value.trim() || '';
         profile.dept = document.getElementById('logisticsDept')?.value.trim() || '';
-        profile.position = document.getElementById('logisticsPosition')?.value.trim() || '';
         profile.year = document.getElementById('logisticsYear')?.value.trim() || '';
         profile.phone = document.getElementById('logisticsPhone')?.value.trim() || '';
         profile.workplace = document.getElementById('logisticsWorkplace')?.value.trim() || '';
