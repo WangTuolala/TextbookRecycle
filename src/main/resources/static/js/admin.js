@@ -1562,36 +1562,43 @@ function renderInventoryInTable() {
         '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
         '<td>' + (r.isbn||'-') + '</td>' +
         '<td>+' + (r.quantity||0) + '</td>' +
-        '<td>' + formatDateTime(r.createTime) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
         '<td>' + (r.operator||'-') + '</td>' +
         '<td>' + (r.remark||'-') + '</td></tr>'
     ).join('');
 }
 
 function bindInventoryInEvents() {
-    const inp = document.querySelector('.inventory-in-page input[type="text"]');
-    if (inp) inp.addEventListener('input', e => {
-        const term = e.target.value.toLowerCase();
-        const filtered = (window.inventoryInRecords||[]).filter(r =>
-            (r.bookName||'').toLowerCase().includes(term) ||
-            (r.isbn||'').toLowerCase().includes(term)
-        );
-        const tbody = document.getElementById('inventoryInTableBody');
-        if (!tbody) return;
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无入库记录</td></tr>';
-            return;
-        }
-        tbody.innerHTML = filtered.map(r => '<tr>' +
-            '<td>' + (r.id||'-') + '</td>' +
-            '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
-            '<td>' + (r.isbn||'-') + '</td>' +
-            '<td>+' + (r.quantity||0) + '</td>' +
-            '<td>' + formatDateTime(r.createTime) + '</td>' +
-            '<td>' + (r.operator||'-') + '</td>' +
-            '<td>' + (r.remark||'-') + '</td></tr>'
-        ).join('');
-    });
+    const inp = document.getElementById('inventoryInSearchInput');
+    const btn = document.getElementById('inventoryInSearchBtn');
+    if (inp) {
+        inp.addEventListener('input', searchInventoryInTable);
+        inp.addEventListener('keypress', e => { if (e.key === 'Enter') searchInventoryInTable(); });
+    }
+    if (btn) btn.addEventListener('click', searchInventoryInTable);
+}
+
+function searchInventoryInTable() {
+    const tbody = document.getElementById('inventoryInTableBody');
+    if (!tbody) return;
+    const term = (document.getElementById('inventoryInSearchInput')?.value || '').toLowerCase();
+    const filtered = (window.inventoryInRecords||[]).filter(r =>
+        (r.bookName||'').toLowerCase().includes(term) ||
+        (r.isbn||'').toLowerCase().includes(term)
+    );
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无入库记录</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filtered.map(r => '<tr>' +
+        '<td>' + (r.id||'-') + '</td>' +
+        '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (r.isbn||'-') + '</td>' +
+        '<td>+' + (r.quantity||0) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
+        '<td>' + (r.operator||'-') + '</td>' +
+        '<td>' + (r.remark||'-') + '</td></tr>'
+    ).join('');
 }
 
 // ---- 出库记录 ----
@@ -1618,36 +1625,43 @@ function renderInventoryOutTable() {
         '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
         '<td>' + (r.isbn||'-') + '</td>' +
         '<td>-' + (r.quantity||0) + '</td>' +
-        '<td>' + formatDateTime(r.createTime) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
         '<td>' + (r.operator||'-') + '</td>' +
         '<td>' + (r.remark||'-') + '</td></tr>'
     ).join('');
 }
 
 function bindInventoryOutEvents() {
-    const inp = document.querySelector('.inventory-out-page input[type="text"]');
-    if (inp) inp.addEventListener('input', e => {
-        const term = e.target.value.toLowerCase();
-        const filtered = (window.inventoryOutRecords||[]).filter(r =>
-            (r.bookName||'').toLowerCase().includes(term) ||
-            (r.isbn||'').toLowerCase().includes(term)
-        );
-        const tbody = document.getElementById('inventoryOutTableBody');
-        if (!tbody) return;
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无出库记录</td></tr>';
-            return;
-        }
-        tbody.innerHTML = filtered.map(r => '<tr>' +
-            '<td>' + (r.id||'-') + '</td>' +
-            '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
-            '<td>' + (r.isbn||'-') + '</td>' +
-            '<td>-' + (r.quantity||0) + '</td>' +
-            '<td>' + formatDateTime(r.createTime) + '</td>' +
-            '<td>' + (r.operator||'-') + '</td>' +
-            '<td>' + (r.remark||'-') + '</td></tr>'
-        ).join('');
-    });
+    const inp = document.getElementById('inventoryOutSearchInput');
+    const btn = document.getElementById('inventoryOutSearchBtn');
+    if (inp) {
+        inp.addEventListener('input', searchInventoryOutTable);
+        inp.addEventListener('keypress', e => { if (e.key === 'Enter') searchInventoryOutTable(); });
+    }
+    if (btn) btn.addEventListener('click', searchInventoryOutTable);
+}
+
+function searchInventoryOutTable() {
+    const tbody = document.getElementById('inventoryOutTableBody');
+    if (!tbody) return;
+    const term = (document.getElementById('inventoryOutSearchInput')?.value || '').toLowerCase();
+    const filtered = (window.inventoryOutRecords||[]).filter(r =>
+        (r.bookName||'').toLowerCase().includes(term) ||
+        (r.isbn||'').toLowerCase().includes(term)
+    );
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无出库记录</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filtered.map(r => '<tr>' +
+        '<td>' + (r.id||'-') + '</td>' +
+        '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (r.isbn||'-') + '</td>' +
+        '<td>-' + (r.quantity||0) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
+        '<td>' + (r.operator||'-') + '</td>' +
+        '<td>' + (r.remark||'-') + '</td></tr>'
+    ).join('');
 }
 
 // ---- 库存盘点 ----
@@ -1674,7 +1688,8 @@ function renderCheckTable() {
     let filtered = (window.stockChecks || []).slice();
     if (searchTerm) {
         filtered = filtered.filter(c =>
-            (c.bookName||'').toLowerCase().includes(searchTerm)
+            (c.bookName||'').toLowerCase().includes(searchTerm) ||
+            (c.isbn||'').toLowerCase().includes(searchTerm)
         );
     }
     if (filtered.length === 0) {
@@ -1692,7 +1707,8 @@ function renderCheckTable() {
             '<td>' + (c.actualStock || 0) + '</td>' +
             '<td class="diff-cell ' + diffClass + '">' + diffStr + '</td>' +
             '<td>' + (c.remark || '-') + '</td>' +
-            '<td>' + escapeHtml(c.operator || '-') + '</td></tr>';
+            '<td>' + escapeHtml(c.operator || '-') + '</td>' +
+            '<td>' + formatDate(c.checkTime) + '</td></tr>';
     }).join('');
     updateCheckStats();
 }
@@ -1703,7 +1719,6 @@ function searchCheckTable() {
 
 function updateCheckStats() {
     const checks = window.stockChecks || [];
-    let totalStock = 0;
     let profit = 0;
     let loss = 0;
     checks.forEach(c => {
@@ -1711,7 +1726,9 @@ function updateCheckStats() {
         if (c.diff < 0) loss += Math.abs(c.diff);
     });
     const el = id => document.getElementById(id);
-    if (el('statTotalStock')) el('statTotalStock').innerText = checks.reduce((s, c) => s + (c.actualStock||0), 0);
+    // 总库存 = 所有图书的系统库存总和（从 Book 表）
+    const totalStock = (window.allBooksForCheck || []).reduce((s, b) => s + (b.stock || 0), 0);
+    if (el('statTotalStock')) el('statTotalStock').innerText = totalStock;
     if (el('statProfit')) el('statProfit').innerText = profit;
     if (el('statLoss')) el('statLoss').innerText = loss;
     if (el('diffTotal')) {

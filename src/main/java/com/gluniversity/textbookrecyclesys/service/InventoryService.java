@@ -32,6 +32,7 @@ public class InventoryService {
         record.setBookId(bookId);
         record.setBookName(book.getName());
         record.setType("IN");
+        record.setIsbn(book.getIsbn());
         record.setQuantity(quantity);
         record.setOperator(operator);
         record.setRemark(remark);
@@ -53,6 +54,7 @@ public class InventoryService {
         record.setBookId(bookId);
         record.setBookName(book.getName());
         record.setType("OUT");
+        record.setIsbn(book.getIsbn());
         record.setQuantity(quantity);
         record.setOperator(operator);
         record.setRemark(remark);

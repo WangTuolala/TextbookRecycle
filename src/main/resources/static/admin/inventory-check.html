@@ -55,7 +55,7 @@
 
     <div class="inventory-actions">
         <div class="inventory-actions-left">
-            <input type="text" id="checkSearchInput" placeholder="搜索教材名称" class="search-input">
+            <input type="text" id="checkSearchInput" placeholder="搜索教材名称或ISBN" class="search-input">
             <button class="btn-primary" onclick="searchCheckTable()">🔍 搜索</button>
             <button class="btn-secondary" onclick="openCheckModal()">开始盘点</button>
         </div>
@@ -74,6 +74,7 @@
             <th>差异</th>
             <th>备注</th>
             <th>经手人</th>
+            <th>盘点时间</th>
         </tr>
         </thead>
         <tbody id="checkTableBody">

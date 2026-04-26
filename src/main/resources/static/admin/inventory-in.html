@@ -41,11 +41,9 @@
 
     <div class="inventory-actions">
         <div class="inventory-actions-left">
-            <input type="text" placeholder="搜索教材名称或ISBN">
-            <button class="btn-primary" onclick="location.href='/admin/inventory-all.html'">+ 新增入库</button>
-        </div>
-        <div class="inventory-actions-right">
-            <button class="btn-secondary" onclick="alert('导出功能开发中')">导出</button>
+            <input type="text" id="inventoryInSearchInput" placeholder="搜索教材名称或ISBN" class="search-input">
+            <button class="btn-primary" id="inventoryInSearchBtn">🔍 搜索</button>
+            <button class="btn-secondary" onclick="location.href='/admin/inventory-all.html'">+ 新增入库</button>
         </div>
     </div>
 
