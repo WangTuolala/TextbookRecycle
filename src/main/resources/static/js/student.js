@@ -1011,8 +1011,14 @@ function changePassword() {
         return;
     }
     
-    alert('密码修改功能开发中');
-    Modal.close('pwdModal');
+    studentApiCall('/password', 'PUT', { oldPassword: oldPwd, newPassword: newPwd })
+        .then(result => {
+            alert('密码修改成功');
+            Modal.close('pwdModal');
+        })
+        .catch(error => {
+            alert(error.message || '密码修改失败');
+        });
 }
 
 // ==================== 回收记录页面功能 ====================
@@ -1022,12 +1028,13 @@ async function initRecycleRecordsPage() {
     try {
         const [appointResult, exchangesResult, pointsResult] = await Promise.all([
             studentApiCall('/appointments', 'GET'),
-            studentApiCall('/prizes', 'GET').then(r => ({ data: [] })),
+            studentApiCall('/exchanges', 'GET'),
             studentApiCall('/points', 'GET')
         ]);
 
         const appointments = appointResult.data || [];
-        const exchanges = pointsResult.data?.exchanges || [];
+        const bookExchanges = exchangesResult.data?.bookExchanges || [];
+        const prizeExchanges = exchangesResult.data?.prizeExchanges || [];
 
         // Render appointment table
         const appointmentTbody = document.getElementById('appointmentTbody');
@@ -1057,13 +1064,10 @@ async function initRecycleRecordsPage() {
             }
         }
 
-        // Render exchange table
-        const recycles = pointsResult.data?.recycles || [];
-
-        // 合并奖品兑换和教材兑换
+        // 合并奖品兑换和教材兑换（只显示后勤/管理员已确认的记录）
         const allExchanges = [
-            ...exchanges.map(ex => ({ ...ex, _type: 'prize' })),
-            ...recycles.map(r => ({ ...r, _type: 'book' }))
+            ...prizeExchanges.map(ex => ({ ...ex, _type: 'prize' })),
+            ...bookExchanges.map(ex => ({ ...ex, _type: 'book' }))
         ].sort((a, b) => {
             const timeA = a.exchangeTime || a.evaluateTime || '';
             const timeB = b.exchangeTime || b.evaluateTime || '';
@@ -1152,7 +1156,8 @@ function updateAppointmentStats() {
 function updateExchangeStats() {
     const tbody = document.getElementById('exchangeTbody');
     if (!tbody) return;
-    const rows = tbody.querySelectorAll('tr');
+    // 只统计有 data-status 属性的真实数据行，排除无数据提示行
+    const rows = Array.from(tbody.querySelectorAll('tr[data-status]'));
     let pending = 0, completed = 0;
     rows.forEach(row => {
         const status = row.getAttribute('data-status');

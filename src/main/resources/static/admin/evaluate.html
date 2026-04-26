@@ -48,8 +48,8 @@
                 <option value="all">全部</option>
                 <option value="PENDING">待审核</option>
                 <option value="APPROVED">已通过</option>
-                <option value="LISTED">已上架</option>
-                <option value="DELISTED">已下架</option>
+                <option value="SYNCED">已同步</option>
+                <option value="REJECTED">已拒绝</option>
             </select>
         </div>
         <div class="filter-group">
@@ -80,6 +80,19 @@
         </table>
     </div>
 
+    <!-- 学生信息弹窗 -->
+    <div id="studentInfoModal" class="modal">
+        <div class="modal-content modal-md">
+            <span class="close-btn" onclick="Modal.close('studentInfoModal')">&times;</span>
+            <h3>👤 学生详细信息</h3>
+            <div class="student-info-content" id="studentInfoContent">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="Modal.close('studentInfoModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 预约详情弹窗 -->
     <div id="appointmentModal" class="modal">
         <div class="modal-content modal-lg">
@@ -90,6 +103,38 @@
             </div>
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="Modal.close('appointmentModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+    <!-- 同步积分弹窗 -->
+    <div id="syncModal" class="modal">
+        <div class="modal-content modal-sm">
+            <span class="close-btn" onclick="Modal.close('syncModal')">&times;</span>
+            <h3>🔄 同步积分</h3>
+            <div class="modal-field">
+                <label>教材名称</label>
+                <div id="syncBookName" style="color:#174257;font-weight:500;padding:8px 0;">-</div>
+            </div>
+            <div class="modal-field">
+                <label>学生</label>
+                <div id="syncStudentName" style="color:#174257;padding:8px 0;">-</div>
+            </div>
+            <div class="modal-field">
+                <label>品相评估</label>
+                <select id="syncCondition" class="filter-select" style="width:100%;padding:8px;" onchange="updateSyncPoints()">
+                    <option value="全新">全新</option>
+                    <option value="良好" selected>良好</option>
+                    <option value="一般">一般</option>
+                    <option value="陈旧">陈旧</option>
+                </select>
+            </div>
+            <div class="modal-field">
+                <label>积分</label>
+                <div id="syncPointsDisplay" style="font-size:1.4rem;font-weight:700;color:#28a745;padding:8px 0;">150</div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="Modal.close('syncModal')">取消</button>
+                <button class="btn-primary" id="confirmSyncBtn">确认同步</button>
             </div>
         </div>
     </div>

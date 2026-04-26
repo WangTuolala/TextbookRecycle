@@ -2,6 +2,7 @@ package com.gluniversity.textbookrecyclesys.controller;
 
 import com.gluniversity.textbookrecyclesys.dto.*;
 import com.gluniversity.textbookrecyclesys.entity.*;
+import com.gluniversity.textbookrecyclesys.repository.BookExchangeRepository;
 import com.gluniversity.textbookrecyclesys.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ public class StudentController {
     private final AnnouncementService announcementService;
     private final NotificationService notificationService;
     private final CategoryService categoryService;
+    private final BookExchangeRepository bookExchangeRepository;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<User>> register(@RequestBody RegisterRequest request) {
@@ -124,13 +126,20 @@ public class StudentController {
             @RequestHeader("X-User-Id") Long studentId) {
         Integer points = userService.getPoints(studentId);
         List<PointsRecord> records = userService.getPointsRecords(studentId);
-        List<Evaluation> evaluations = recycleService.getEvaluationsByStudent(studentId);
-        List<PrizeExchange> exchanges = prizeService.getExchangesByStudent(studentId);
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "points", points,
-                "records", records,
-                "recycles", evaluations,
-                "exchanges", exchanges
+                "records", records
+        )));
+    }
+
+    @GetMapping("/exchanges")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getStudentExchanges(
+            @RequestHeader("X-User-Id") Long studentId) {
+        List<BookExchange> bookExchanges = bookExchangeRepository.findByStudentIdOrderByExchangeTimeDesc(studentId);
+        List<PrizeExchange> prizeExchanges = prizeService.getExchangesByStudent(studentId);
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "bookExchanges", bookExchanges.stream().filter(e -> "COMPLETED".equals(e.getStatus())).toList(),
+                "prizeExchanges", prizeExchanges.stream().filter(e -> "COMPLETED".equals(e.getStatus())).toList()
         )));
     }
 
@@ -236,6 +245,20 @@ public class StudentController {
         try {
             User user = userService.updateProfile(userId, updatedUser);
             return ResponseEntity.ok(ApiResponse.success("更新成功", user));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @RequestBody Map<String, String> request,
+            @RequestHeader("X-User-Id") Long userId) {
+        try {
+            String oldPassword = request.get("oldPassword");
+            String newPassword = request.get("newPassword");
+            userService.updatePassword(userId, oldPassword, newPassword);
+            return ResponseEntity.ok(ApiResponse.success("密码修改成功"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

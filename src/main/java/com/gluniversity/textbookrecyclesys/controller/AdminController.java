@@ -32,7 +32,10 @@ public class AdminController {
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getStats() {
         int totalRecycled = recycleService.getAllEvaluations().size();
-        int totalExchanged = prizeService.getAllExchanges().stream().filter(e -> "COMPLETED".equals(e.getStatus())).toList().size();
+        int totalExchanged = bookExchangeRepository.findAll().stream()
+                .filter(e -> "COMPLETED".equals(e.getStatus()))
+                .mapToInt(e -> e.getQuantity() != null ? e.getQuantity() : 1)
+                .sum();
         int pendingAppointments = recycleService.getAppointmentsByStatus("PENDING").size();
         int approvedAppointments = recycleService.getAppointmentsByStatus("APPROVED").size();
         int pendingEvaluations = recycleService.getEvaluationsByStatus("APPROVED").size();
@@ -68,6 +71,20 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    @PutMapping("/password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @RequestBody Map<String, String> request,
+            @RequestHeader("X-User-Id") Long userId) {
+        try {
+            String oldPassword = request.get("oldPassword");
+            String newPassword = request.get("newPassword");
+            userService.updatePassword(userId, oldPassword, newPassword);
+            return ResponseEntity.ok(ApiResponse.success("密码修改成功"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     // ===== 教材兑换领取 =====
     @GetMapping("/book-exchanges")
     public ResponseEntity<ApiResponse<List<BookExchange>>> getBookExchanges() {
@@ -81,6 +98,8 @@ public class AdminController {
                 .map(ex -> {
                     ex.setStatus("COMPLETED");
                     bookExchangeRepository.save(ex);
+                    // 确认领取时扣除积分并记流水
+                    userService.deductPoints(ex.getStudentId(), ex.getPointsCost(), "EXCHANGE", ex.getBookName(), "BOOK");
                     return ResponseEntity.ok(ApiResponse.success("领取确认成功"));
                 })
                 .orElse(ResponseEntity.badRequest().body(ApiResponse.error("记录不存在")));
@@ -251,6 +270,18 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(appointments));
     }
 
+    @GetMapping("/evaluations")
+    public ResponseEntity<ApiResponse<List<Evaluation>>> getEvaluations(
+            @RequestParam(required = false) String status) {
+        List<Evaluation> evaluations;
+        if (status != null && !status.isEmpty() && !status.equals("all")) {
+            evaluations = recycleService.getEvaluationsByStatus(status);
+        } else {
+            evaluations = recycleService.getAllEvaluations();
+        }
+        return ResponseEntity.ok(ApiResponse.success(evaluations));
+    }
+
     @GetMapping("/evaluations/search")
     public ResponseEntity<ApiResponse<List<Evaluation>>> searchEvaluations(
             @RequestParam String keyword) {
@@ -282,18 +313,6 @@ public class AdminController {
         }
     }
 
-    @GetMapping("/evaluations")
-    public ResponseEntity<ApiResponse<List<Evaluation>>> getEvaluations(
-            @RequestParam(required = false) String status) {
-        List<Evaluation> evaluations;
-        if (status != null && !status.isEmpty() && !status.equals("all")) {
-            evaluations = recycleService.getEvaluationsByStatus(status);
-        } else {
-            evaluations = recycleService.getAllEvaluations();
-        }
-        return ResponseEntity.ok(ApiResponse.success(evaluations));
-    }
-
     @PostMapping("/evaluations/{id}/approve")
     public ResponseEntity<ApiResponse<Evaluation>> approveAppointment(
             @PathVariable Long id,
@@ -312,6 +331,20 @@ public class AdminController {
         try {
             recycleService.rejectAppointment(id);
             return ResponseEntity.ok(ApiResponse.success("已拒绝", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/evaluations/{id}/condition")
+    public ResponseEntity<ApiResponse<Void>> updateEvaluationCondition(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request) {
+        try {
+            String adminCondition = (String) request.get("adminCondition");
+            Integer points = request.get("points") != null ? ((Number) request.get("points")).intValue() : null;
+            recycleService.updateEvaluationCondition(id, adminCondition, points);
+            return ResponseEntity.ok(ApiResponse.success("更新成功", null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

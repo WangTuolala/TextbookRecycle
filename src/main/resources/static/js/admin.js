@@ -209,9 +209,10 @@ function renderPickupTable(exchanges) {
             ? '<button class="btn-sm btn-pass" onclick="confirmBookPickup(' + ex.id + ')">确认领取</button>'
             : '-';
         const sName = ex.studentName ? ex.studentName.replace(/'/g, "\'") : '';
+        const imgSrc = ex.coverImage || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Crect width='50' height='50' fill='%23e1eff8' rx='10'/%3E%3Ctext x='25' y='33' text-anchor='middle' fill='%231e6d8f' font-size='24'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E`;
         return '<tr data-status="' + (ex.status||'') + '" data-student="' + sName + '">' +
             '<td class="student-name-cell" onclick="viewStudentInfo(\'' + ex.studentId + '\',\'' + sName + '\')">' + escapeHtml(ex.studentName || '-') + '</td>' +
-            '<td style="text-align:center;"><span style="font-size:24px;">📚</span></td>' +
+            '<td class="prize-img-cell"><img src="' + imgSrc + '" alt="" class="prize-table-img" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 50 50\'%3E%3Crect width=\'50\' height=\'50\' fill=\'%23e1eff8\' rx=\'10\'/%3E%3Ctext x=\'25\' y=\'33\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'24\'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E\'"></td>' +
             '<td>' + escapeHtml(ex.bookName || '-') + '</td>' +
             '<td>' + (ex.pointsCost || 0) + '</td>' +
             '<td>' + time + '</td>' +
@@ -443,12 +444,14 @@ function renderEvaluateTable() {
         let actions = '';
         if (item.status === 'PENDING') {
             if (item._sourceType === 'appointment') {
-                actions = '<button class="btn-sm btn-pass" onclick="approveAppointment(' + item._origId + ',this)">通过</button>';
+                actions = '<button class="btn-sm btn-pass" onclick="approveAppointment(' + item._origId + ',this)">通过</button>' +
+                         '<button class="btn-sm btn-reject" onclick="rejectAppointment(' + item._origId + ',this)">拒绝</button>';
             } else {
-                actions = '<button class="btn-sm btn-pass" onclick="approveEvaluate(\'' + item.id + '\',this)">通过</button>';
+                actions = '<button class="btn-sm btn-pass" onclick="approveEvaluate(\'' + item.id + '\',this)">通过</button>' +
+                         '<button class="btn-sm btn-reject" onclick="rejectEvaluate(\'' + item.id + '\',this)">拒绝</button>';
             }
         } else if (item.status === 'APPROVED') {
-            actions = '<button class="btn-sm btn-sync" onclick="syncEvaluate(\'' + item.id + '\',this)">同步积分</button>' +
+            actions = '<button class="btn-sm btn-sync" onclick="openSyncModal(\'' + item.id + '\')">同步积分</button>' +
                       '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
         } else if (item.status === 'SYNCED') {
             actions = '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
@@ -463,7 +466,7 @@ function renderEvaluateTable() {
         const selectDisabled = '';
         return '<tr data-id="' + item.id + '">' +
             '<td class="appointment-link" onclick="showAppointmentDetail(\'' + item.id + '\')">&#128196; ' + (item.appointmentId || '-') + '</td>' +
-            '<td class="student-name-cell" onclick="viewStudentInfo(\'' + sId + '\',\'' + sName + '\')">' + (item.studentName ? item.studentName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.studentUsername || sId || '-') + '</small></td>' +
+            '<td class="student-name-cell" onclick="viewStudentInfo(\'' + sId + '\',\'' + esc(item.studentName) + '\')">' + (item.studentName ? item.studentName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.studentUsername || sId || '-') + '</small></td>' +
             '<td style="text-align:left;">' + (item.bookName ? item.bookName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.author || '') + '</small></td>' +
             '<td>' + (item.selfCondition || '-') + '</td>' +
             '<td><select class="evaluate-select" data-id="' + item.id + '" onchange="onConditionChange(this,\'' + item.id + '\')"' + selectDisabled + '>' +
@@ -521,12 +524,66 @@ window.approveAppointment = async function(appointmentId, btn) {
     }
 };
 
-window.syncEvaluate = async function(id, btn) {
-    if (!confirm('确认同步积分？将为学生增加相应积分。')) return;
-    if (btn) btn.disabled = true;
+window.openSyncModal = function(id) {
+    const item = window.evaluateData.find(e => e.id === id);
+    if (!item) return;
+    window._syncEvalId = id;
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    const cond = item.adminCondition || '良好';
+    document.getElementById('syncBookName').innerText = item.bookName || '-';
+    document.getElementById('syncStudentName').innerText = (item.studentName || '-') + '（' + (item.studentUsername || item.studentId || '-') + '）';
+    const condSel = document.getElementById('syncCondition');
+    condSel.value = cond;
+    document.getElementById('syncPointsDisplay').innerText = ruleMap[cond] || 0;
+    document.getElementById('confirmSyncBtn').onclick = function() { confirmSync(id); };
+    Modal.open('syncModal');
+};
+
+window.updateSyncPoints = function() {
+    const cond = document.getElementById('syncCondition').value;
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    document.getElementById('syncPointsDisplay').innerText = ruleMap[cond] || 0;
+};
+
+window.confirmSync = async function(id) {
+    const cond = document.getElementById('syncCondition').value;
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    const pts = ruleMap[cond] || 0;
+    const btn = document.getElementById('confirmSyncBtn');
+    btn.disabled = true;
     try {
+        await adminApiCall('/evaluations/' + id + '/condition', 'PUT', { adminCondition: cond, points: pts });
         await adminApiCall('/evaluations/' + id + '/sync', 'POST');
         alert('积分同步成功！');
+        Modal.close('syncModal');
+        await loadEvaluateData();
+        renderEvaluateTable();
+    } catch (error) {
+        alert(error.message);
+        btn.disabled = false;
+    }
+};
+
+window.rejectAppointment = async function(appointmentId, btn) {
+    if (!confirm('确定要拒绝该预约吗？')) return;
+    if (btn) btn.disabled = true;
+    try {
+        await adminApiCall('/appointments/' + appointmentId + '/reject', 'POST');
+        alert('已拒绝预约');
+        await loadEvaluateData();
+        renderEvaluateTable();
+    } catch (error) {
+        alert(error.message);
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.rejectEvaluate = async function(id, btn) {
+    if (!confirm('确定要拒绝该评估吗？')) return;
+    if (btn) btn.disabled = true;
+    try {
+        await adminApiCall('/evaluations/' + id + '/reject', 'POST');
+        alert('已拒绝评估');
         await loadEvaluateData();
         renderEvaluateTable();
     } catch (error) {
@@ -683,6 +740,39 @@ async function saveProfile() {
         }
     } catch (error) {
         alert(error.message);
+    }
+}
+
+async function changePassword() {
+    const oldPwd = document.getElementById('oldPassword')?.value;
+    const newPwd = document.getElementById('newPassword')?.value;
+    const confirmPwd = document.getElementById('confirmPassword')?.value;
+
+    if (!oldPwd || !newPwd || !confirmPwd) {
+        alert('请填写所有密码字段');
+        return;
+    }
+
+    if (newPwd !== confirmPwd) {
+        alert('新密码和确认密码不一致');
+        return;
+    }
+
+    if (newPwd.length < 6) {
+        alert('新密码长度不能少于6位');
+        return;
+    }
+
+    try {
+        const result = await adminApiCall('/password', 'PUT', { oldPassword: oldPwd, newPassword: newPwd });
+        if (result.success) {
+            alert('密码修改成功');
+            Modal.close('pwdModal');
+        } else {
+            alert(result.message || '密码修改失败');
+        }
+    } catch (error) {
+        alert(error.message || '密码修改失败');
     }
 }
 
@@ -1744,7 +1834,8 @@ async function loadLowStockBooks() {
             } else {
                 container.innerHTML = books.map(book =>
                     '<div class="warning-item">' +
-                    '<span class="warning-book">' + (book.name||'-').replace(/</g,'&lt;') + '（库存:' + book.stock + '）</span>' +
+                    '<span class="warning-book">' + (book.name||'-').replace(/</g,'&lt;') + '</span>' +
+                    '<span class="warning-stock">库存:' + book.stock + '</span>' +
                     '</div>'
                 ).join('');
             }
@@ -1798,7 +1889,7 @@ async function loadChartData() {
             if (exchangeChartInstance) exchangeChartInstance.destroy();
             const ctx2 = exchangeCanvas.getContext('2d');
             exchangeChartInstance = new Chart(ctx2, {
-                type: 'doughnut',
+                type: 'pie',
                 data: {
                     labels: data.exchangeLabels || [],
                     datasets: [{
@@ -1819,7 +1910,6 @@ async function loadChartData() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '55%',
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -1873,7 +1963,7 @@ async function loadChartData() {
                         tooltip: {
                             callbacks: {
                                 label: function(ctx) {
-                                    return ' 评估量: ' + ctx.parsed.x + ' 本';
+                                    return ' 兑换量: ' + ctx.parsed.x + ' 本';
                                 }
                             }
                         }

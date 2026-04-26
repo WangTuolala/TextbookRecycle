@@ -63,7 +63,7 @@ public class PrizeService {
             throw new RuntimeException("库存不足");
         }
 
-        userService.deductPoints(studentId, totalCost, "EXCHANGE", prize.getName(), "PRIZE");
+        // 暂不扣除积分，等后勤确认领取后再扣除并记流水（见 PrizeService.confirmPickup）
 
         prize.setStock(prize.getStock() - quantity);
         prizeRepository.save(prize);
@@ -111,6 +111,9 @@ public class PrizeService {
         exchange.setStatus("COMPLETED");
         exchange.setPickupTime(LocalDateTime.now());
         exchangeRepository.save(exchange);
+        // 确认领取时扣除积分并记流水
+        int totalCost = exchange.getPoints() * exchange.getQuantity();
+        userService.deductPoints(exchange.getStudentId(), totalCost, "EXCHANGE", exchange.getPrizeName(), "PRIZE");
     }
 
     public PointsRule getPointsRule() {

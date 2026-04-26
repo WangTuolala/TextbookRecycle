@@ -98,16 +98,16 @@
         <span class="close-btn">&times;</span>
         <h3>修改密码</h3>
         <div class="modal-field">
-            <input type="password" placeholder="当前密码">
+            <input type="password" id="oldPassword" placeholder="当前密码">
         </div>
         <div class="modal-field">
-            <input type="password" placeholder="新密码">
+            <input type="password" id="newPassword" placeholder="新密码">
         </div>
         <div class="modal-field">
-            <input type="password" placeholder="确认新密码">
+            <input type="password" id="confirmPassword" placeholder="确认新密码">
         </div>
         <div class="modal-actions">
-            <button class="btn-primary" onclick="Modal.close('pwdModal'); alert('密码已修改')">修改</button>
+            <button class="btn-primary" onclick="changePassword()">修改</button>
             <button class="btn-secondary" onclick="Modal.close('pwdModal')">取消</button>
         </div>
     </div>
