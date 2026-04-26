@@ -876,8 +876,14 @@ async function loadBooksForMgmt() {
 
 async function loadCategoriesForBookForm() {
     try {
-        const result = await adminApiCall('/categories', 'GET');
-        const allCategories = result.data || [];
+        // 联动：检查分类是否在其他页面被更新过，若是则重新加载
+        const lastUpdated = sessionStorage.getItem('categories_updated');
+        const cached = sessionStorage.getItem('categories_cache');
+        const allCategories = (!lastUpdated && cached)
+            ? JSON.parse(cached)
+            : (await adminApiCall('/categories', 'GET')).data || [];
+        if (lastUpdated) sessionStorage.removeItem('categories_updated');
+        sessionStorage.setItem('categories_cache', JSON.stringify(allCategories));
         // 只加载 ACTIVE（启用）的专业用于下拉选择
         const activeCategories = allCategories.filter(c => c.status === 'ACTIVE');
         const selects = [
@@ -1336,7 +1342,7 @@ async function initInventoryCheckPage() {
 // ---- 全部库存 ----
 async function loadInventoryBooks() {
     try {
-        const result = await adminApiCall('/inventory/all-records', 'GET');
+        const result = await adminApiCall('/inventory/summary', 'GET');
         window.inventoryBooks = result.data || [];
         renderInventoryTable();
     } catch (error) {
@@ -1361,20 +1367,16 @@ function renderInventoryTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;">暂无库存数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;">暂无库存数据</td></tr>';
         return;
     }
 
     tbody.innerHTML = filtered.map(r => {
-        const typeLabel = r.type === 'IN' ? '入库' : '出库';
-        const typeClass = r.type === 'IN' ? 'listed' : 'delisted';
         return '<tr>' +
-            '<td>' + escapeHtml(r.bookName || '-') + '</td>' +
+            '<td style="text-align:left;">' + escapeHtml(r.bookName || '-') + '</td>' +
             '<td>' + escapeHtml(r.isbn || '-') + '</td>' +
-            '<td><span class="status-badge ' + typeClass + '">' + typeLabel + '</span></td>' +
-            '<td>' + (r.quantity||0) + '</td>' +
-            '<td>' + (r.time ? formatDateTime(r.time) : '-') + '</td>' +
-            '<td>' + escapeHtml(r.operator || '-') + '</td></tr>';
+            '<td>' + (r.totalStock != null ? r.totalStock : 0) + '</td>' +
+            '<td>' + escapeHtml(r.lastOperator || '-') + '</td></tr>';
     }).join('');
 }
 
@@ -1388,97 +1390,149 @@ function bindInventoryEvents() {
         inp.addEventListener('input', renderInventoryTable);
         inp.addEventListener('keypress', e => { if (e.key === 'Enter') renderInventoryTable(); });
     }
-    loadStockInBookSelect();
-    loadStockOutBookSelect();
-}
-
-async function loadStockInBookSelect() {
-    try {
-        const result = await adminApiCall('/inventory/books', 'GET');
-        const books = result.data || [];
-        const sel = document.getElementById('stockInBookSelect');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">-- 请选择教材 --</option>' +
-            books.map(b => '<option value="' + b.id + '">' + (b.name||'-') + '（库存:' + (b.stock||0) + '）</option>').join('');
-    } catch (error) { console.error('加载教材下拉失败', error); }
-}
-
-async function loadStockOutBookSelect() {
-    try {
-        const result = await adminApiCall('/inventory/books', 'GET');
-        const books = result.data || [];
-        const sel = document.getElementById('stockOutBookSelect');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">-- 请选择教材 --</option>' +
-            books.map(b => '<option value="' + b.id + '">' + (b.name||'-') + '（库存:' + (b.stock||0) + '）</option>').join('');
-    } catch (error) { console.error('加载教材下拉失败', error); }
 }
 
 window.openStockInModal = function() {
-    loadStockInBookSelect();
+    document.getElementById('stockInBookInput').value = '';
+    document.getElementById('stockInBookId').value = '';
+    document.getElementById('stockInIsbn').innerText = '-';
+    document.getElementById('stockInCurrentStock').innerText = '-';
+    document.getElementById('stockInQuantity').value = '1';
+    document.getElementById('stockInOperator').value = '';
+    document.getElementById('stockInRemark').value = '';
+    document.getElementById('stockInDropdown').style.display = 'none';
+    const u = getCurrentUser();
+    if (u && u.name) document.getElementById('stockInOperator').value = u.name;
     Modal.open('stockInModal');
 };
 
 window.openStockOutModal = function() {
-    loadStockOutBookSelect();
+    document.getElementById('stockOutBookInput').value = '';
+    document.getElementById('stockOutBookId').value = '';
+    document.getElementById('stockOutIsbn').innerText = '-';
+    document.getElementById('stockOutCurrentStock').innerText = '-';
+    document.getElementById('stockOutQuantity').value = '1';
+    document.getElementById('stockOutOperator').value = '';
+    document.getElementById('stockOutRemark').value = '';
+    document.getElementById('stockOutDropdown').style.display = 'none';
+    const u = getCurrentUser();
+    if (u && u.name) document.getElementById('stockOutOperator').value = u.name;
     Modal.open('stockOutModal');
 };
 
-window.openStockInForBook = function(bookId) {
-    document.getElementById('stockInBookSelect').value = bookId;
-    Modal.open('stockInModal');
+window.filterStockInBooks = async function() {
+    const input = document.getElementById('stockInBookInput');
+    const keyword = input.value.trim();
+    const dropdown = document.getElementById('stockInDropdown');
+    if (!keyword) { dropdown.style.display = 'none'; return; }
+    try {
+        const result = await adminApiCall('/inventory/books?keyword=' + encodeURIComponent(keyword), 'GET');
+        const books = result.data || [];
+        if (books.length === 0) {
+            dropdown.innerHTML = '<div class="book-search-item" style="color:#888;cursor:default;">未找到匹配的教材</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        dropdown.innerHTML = books.map(b => {
+            const stock = b.stock != null ? b.stock : 0;
+            const stockClass = stock === 0 ? 'low' : '';
+            return '<div class="book-search-item" onclick="window.selectStockInBook(\'' + b.id + '\',\'' + (b.name||'').replace(/'/g, '\\\'') + '\',\'' + (b.isbn||'').replace(/'/g, '\\\'') + '\',' + stock + ')">' +
+                '<div><div class="book-name">' + escapeHtml(b.name||'-') + '</div><div class="book-isbn">' + escapeHtml(b.isbn||'-') + '</div></div>' +
+                '<div class="book-stock ' + stockClass + '">库存:' + stock + '</div></div>';
+        }).join('');
+        dropdown.style.display = 'block';
+    } catch (e) { console.error(e); }
 };
 
-window.openStockOutForBook = function(bookId) {
-    document.getElementById('stockOutBookSelect').value = bookId;
-    Modal.open('stockOutModal');
+window.filterStockOutBooks = async function() {
+    const input = document.getElementById('stockOutBookInput');
+    const keyword = input.value.trim();
+    const dropdown = document.getElementById('stockOutDropdown');
+    if (!keyword) { dropdown.style.display = 'none'; return; }
+    try {
+        const result = await adminApiCall('/inventory/books?keyword=' + encodeURIComponent(keyword), 'GET');
+        const books = result.data || [];
+        if (books.length === 0) {
+            dropdown.innerHTML = '<div class="book-search-item" style="color:#888;cursor:default;">未找到匹配的教材</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        dropdown.innerHTML = books.map(b => {
+            const stock = b.stock != null ? b.stock : 0;
+            const stockClass = stock === 0 ? 'low' : '';
+            return '<div class="book-search-item" onclick="window.selectStockOutBook(\'' + b.id + '\',\'' + (b.name||'').replace(/'/g, '\\\'') + '\',\'' + (b.isbn||'').replace(/'/g, '\\\'') + '\',' + stock + ')">' +
+                '<div><div class="book-name">' + escapeHtml(b.name||'-') + '</div><div class="book-isbn">' + escapeHtml(b.isbn||'-') + '</div></div>' +
+                '<div class="book-stock ' + stockClass + '">库存:' + stock + '</div></div>';
+        }).join('');
+        dropdown.style.display = 'block';
+    } catch (e) { console.error(e); }
+};
+
+window.selectStockInBook = function(id, name, isbn, stock) {
+    document.getElementById('stockInBookInput').value = name;
+    document.getElementById('stockInBookId').value = id;
+    document.getElementById('stockInIsbn').innerText = isbn || '-';
+    document.getElementById('stockInCurrentStock').innerText = stock;
+    document.getElementById('stockInDropdown').style.display = 'none';
+};
+
+window.selectStockOutBook = function(id, name, isbn, stock) {
+    document.getElementById('stockOutBookInput').value = name;
+    document.getElementById('stockOutBookId').value = id;
+    document.getElementById('stockOutIsbn').innerText = isbn || '-';
+    document.getElementById('stockOutCurrentStock').innerText = stock;
+    document.getElementById('stockOutDropdown').style.display = 'none';
+};
+
+window.onStockInBlur = function() {
+    setTimeout(() => { document.getElementById('stockInDropdown').style.display = 'none'; }, 200);
+};
+
+window.onStockOutBlur = function() {
+    setTimeout(() => { document.getElementById('stockOutDropdown').style.display = 'none'; }, 200);
 };
 
 window.submitStockIn = async function() {
-    const bookId = document.getElementById('stockInBookSelect').value;
+    const bookId = document.getElementById('stockInBookId').value;
     const qty = document.getElementById('stockInQuantity').value;
-    const remark = document.getElementById('stockInRemark').value;
+    const operator = document.getElementById('stockInOperator').value.trim();
+    const remark = document.getElementById('stockInRemark').value.trim();
     if (!bookId) { alert('请选择教材'); return; }
-    if (!qty || qty <= 0) { alert('请输入正确的数量'); return; }
+    if (!qty || parseInt(qty) <= 0) { alert('请输入正确的数量'); return; }
+    if (!operator) { alert('请输入经手人'); return; }
     try {
-        const u = getCurrentUser();
-        const operatorName = u && u.name ? u.name : '管理员';
         await adminApiCall('/inventory/in', 'POST', {
             bookId: parseInt(bookId),
             quantity: parseInt(qty),
-            remark: remark || ''
-        }, { 'X-Operator-Name': operatorName });
+            remark: operator + (remark ? ' ' + remark : '')
+        });
         Modal.close('stockInModal');
-        document.getElementById('stockInQuantity').value = '1';
-        document.getElementById('stockInRemark').value = '';
         await loadInventoryBooks();
         renderInventoryTable();
-        alert('入库成功');
+        alert('入库成功！');
     } catch (error) {
         alert(error.message);
     }
 };
 
 window.submitStockOut = async function() {
-    const bookId = document.getElementById('stockOutBookSelect').value;
+    const bookId = document.getElementById('stockOutBookId').value;
     const qty = document.getElementById('stockOutQuantity').value;
-    const remark = document.getElementById('stockOutRemark').value;
+    const operator = document.getElementById('stockOutOperator').value.trim();
+    const remark = document.getElementById('stockOutRemark').value.trim();
     if (!bookId) { alert('请选择教材'); return; }
-    if (!qty || qty <= 0) { alert('请输入正确的数量'); return; }
+    if (!qty || parseInt(qty) <= 0) { alert('请输入正确的数量'); return; }
+    if (!operator) { alert('请输入经手人'); return; }
     try {
-        const u = getCurrentUser();
-        const operatorName = u && u.name ? u.name : '管理员';
         await adminApiCall('/inventory/out', 'POST', {
             bookId: parseInt(bookId),
             quantity: parseInt(qty),
-            remark: remark || ''
-        }, { 'X-Operator-Name': operatorName });
+            remark: operator + (remark ? ' ' + remark : '')
+        });
         Modal.close('stockOutModal');
-        document.getElementById('stockOutQuantity').value = '1';
-        document.getElementById('stockOutRemark').value = '';
         await loadInventoryBooks();
         renderInventoryTable();
-        alert('出库成功');
+        alert('出库成功！');
     } catch (error) {
         alert(error.message);
     }
@@ -2003,6 +2057,8 @@ async function saveCategory() {
     const id = document.getElementById('categoryId').value;
     const name = document.getElementById('categoryName').value.trim();
     if (!name) { alert('请输入专业名称'); return; }
+    const actionLabel = id ? '更新' : '新增';
+    if (!confirm('确定要' + actionLabel + '专业分类 "' + name + '" 吗？')) return;
     const payload = { name: name, status: 'ACTIVE' };
     try {
         if (id) {
@@ -2012,6 +2068,7 @@ async function saveCategory() {
             await adminApiCall('/categories', 'POST', payload);
             alert('新增成功');
         }
+        sessionStorage.setItem('categories_updated', Date.now().toString());
         Modal.close('categoryModal');
         await loadCategories();
     } catch (e) {
@@ -2024,8 +2081,11 @@ async function toggleCategory(id) {
     const cat = cats.find(c => c.id == id);
     if (!cat) return;
     const newStatus = cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const actionLabel = newStatus === 'ACTIVE' ? '启用' : '禁用';
+    if (!confirm('确定要' + actionLabel + '该专业分类 "' + (cat.name || '') + '" 吗？')) return;
     try {
         await adminApiCall('/categories/' + id, 'PUT', { name: cat.name, status: newStatus });
+        sessionStorage.setItem('categories_updated', Date.now().toString());
         await loadCategories();
     } catch (e) {
         alert('操作失败: ' + (e.message || ''));
@@ -2045,7 +2105,7 @@ function renderCategoryTable(cats) {
         const statusClass = isActive ? 'listed' : 'delisted';
         const toggleLabel = isActive ? '禁用' : '启用';
         const toggleClass = isActive ? 'btn-danger' : 'btn-pass';
-        const createdTime = cat.createTime ? formatDateTime(cat.createTime) : '-';
+        const createdTime = cat.createTime ? formatDate(cat.createTime) : '-';
         return '<tr>' +
             '<td>' + escapeHtml(cat.name || '-') + '</td>' +
             '<td><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>' +

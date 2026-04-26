@@ -478,13 +478,27 @@ public class AdminController {
 
     // ===== 库存管理 =====
     @GetMapping("/inventory/books")
-    public ResponseEntity<ApiResponse<List<Book>>> getInventoryBooks() {
-        return ResponseEntity.ok(ApiResponse.success(inventoryService.getAllBooksForInventory()));
+    public ResponseEntity<ApiResponse<List<Book>>> getInventoryBooks(
+            @RequestParam(required = false) String keyword) {
+        List<Book> books = inventoryService.getAllBooksForInventory();
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = keyword.toLowerCase();
+            books = books.stream()
+                    .filter(b -> (b.getName() != null && b.getName().toLowerCase().contains(kw)) ||
+                                 (b.getIsbn() != null && b.getIsbn().toLowerCase().contains(kw)))
+                    .toList();
+        }
+        return ResponseEntity.ok(ApiResponse.success(books));
     }
 
     @GetMapping("/inventory/books-with-operators")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getInventoryBooksWithOperators() {
         return ResponseEntity.ok(ApiResponse.success(inventoryService.getBooksWithOperator()));
+    }
+
+    @GetMapping("/inventory/summary")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getInventorySummary() {
+        return ResponseEntity.ok(ApiResponse.success(inventoryService.getAggregatedInventory()));
     }
 
     @GetMapping("/inventory/all-records")

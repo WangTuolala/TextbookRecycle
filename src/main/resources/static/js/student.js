@@ -192,12 +192,19 @@ function updateBookModal(book) {
 // ==================== 专业下拉动态加载 ====================
 async function loadMajors() {
     try {
-        const result = await studentApiCall('/majors', 'GET');
+        // 联动：检查分类是否在其他页面被更新过，若是则重新加载
+        const lastUpdated = sessionStorage.getItem('categories_updated');
+        const cached = sessionStorage.getItem('student_majors_cache');
+        const majors = (!lastUpdated && cached)
+            ? JSON.parse(cached)
+            : (await studentApiCall('/majors', 'GET')).data || [];
+        if (lastUpdated) sessionStorage.removeItem('categories_updated');
+        sessionStorage.setItem('student_majors_cache', JSON.stringify(majors));
         const majorSelect = document.getElementById('majorFilter');
         if (!majorSelect) return;
         const currentValue = majorSelect.value;
         majorSelect.innerHTML = '<option value="all">全部专业</option>';
-        (result.data || []).forEach(major => {
+        majors.forEach(major => {
             const opt = document.createElement('option');
             opt.value = major;
             opt.textContent = major;
@@ -214,8 +221,14 @@ async function loadMajors() {
 // ==================== 专业状态加载（禁用专业标记） ====================
 async function loadMajorsStatus() {
     try {
-        const result = await studentApiCall('/majors-status', 'GET');
-        window.disabledMajors = (result.data || [])
+        const lastUpdated = sessionStorage.getItem('categories_updated');
+        const cached = sessionStorage.getItem('student_majors_status_cache');
+        const data = (!lastUpdated && cached)
+            ? JSON.parse(cached)
+            : (await studentApiCall('/majors-status', 'GET')).data || [];
+        if (lastUpdated) sessionStorage.removeItem('categories_updated');
+        sessionStorage.setItem('student_majors_status_cache', JSON.stringify(data));
+        window.disabledMajors = data
             .filter(m => m.status === 'INACTIVE')
             .map(m => m.name);
     } catch (e) {
