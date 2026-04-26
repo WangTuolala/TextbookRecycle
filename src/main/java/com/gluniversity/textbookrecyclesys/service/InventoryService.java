@@ -32,6 +32,7 @@ public class InventoryService {
         record.setBookId(bookId);
         record.setBookName(book.getName());
         record.setType("IN");
+        record.setIsbn(book.getIsbn());
         record.setQuantity(quantity);
         record.setOperator(operator);
         record.setRemark(remark);
@@ -53,6 +54,7 @@ public class InventoryService {
         record.setBookId(bookId);
         record.setBookName(book.getName());
         record.setType("OUT");
+        record.setIsbn(book.getIsbn());
         record.setQuantity(quantity);
         record.setOperator(operator);
         record.setRemark(remark);
@@ -137,6 +139,50 @@ public class InventoryService {
             });
             result.add(map);
         }
+        return result;
+    }
+
+    // 按书名+ISBN聚合，返回每本书的当前库存、最新操作时间和经手人
+    public List<Map<String, Object>> getAggregatedInventory() {
+        List<Book> books = bookRepository.findAll().stream()
+                .filter(b -> !"DELISTED".equals(b.getStatus()))
+                .toList();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Book book : books) {
+            List<InventoryRecord> records = recordRepository
+                    .findByBookIdOrderByCreateTimeDesc(book.getId());
+            String lastOperator = "-";
+            LocalDateTime lastTime = null;
+            for (InventoryRecord r : records) {
+                String op = r.getOperator();
+                if (op != null && !"系统".equals(op) &&
+                    (r.getRemark() == null || (!r.getRemark().contains("评估上架") && !r.getRemark().contains("学生兑换")))) {
+                    lastOperator = op;
+                    lastTime = r.getCreateTime();
+                    break;
+                }
+                if (lastTime == null) {
+                    lastTime = r.getCreateTime();
+                }
+            }
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("bookId", book.getId());
+            map.put("bookName", book.getName());
+            map.put("isbn", book.getIsbn() != null ? book.getIsbn() : "-");
+            map.put("totalStock", book.getStock());
+            map.put("lastOperator", lastOperator);
+            map.put("lastTime", lastTime);
+            result.add(map);
+        }
+        // 按最后操作时间倒序（最新的在前面）
+        result.sort((a, b) -> {
+            LocalDateTime ta = (LocalDateTime) a.get("lastTime");
+            LocalDateTime tb = (LocalDateTime) b.get("lastTime");
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return tb.compareTo(ta);
+        });
         return result;
     }
 }

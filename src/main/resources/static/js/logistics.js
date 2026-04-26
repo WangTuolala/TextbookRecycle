@@ -329,6 +329,23 @@ window.openEditPrizeModal = function(id) {
         previewImg.src = prize.imageData || previewImg.src;
     }
     document.getElementById('editPrizeImage').value = '';
+
+    // 绑定图片上传预览：上传即更新预览图
+    const imageInput = document.getElementById('editPrizeImage');
+    const newInput = imageInput.cloneNode(true);
+    imageInput.parentNode.replaceChild(newInput, imageInput);
+    newInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const preview = document.querySelector('#editPrizePreview img');
+                if (preview) preview.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
     Modal.open('editPrizeModal');
 };
 
@@ -630,7 +647,7 @@ function initProfilePage() {
     }
     if (pwdModal) {
         const saveBtn = pwdModal.querySelector('.btn-primary');
-        if (saveBtn) saveBtn.onclick = function() { Modal.close('pwdModal'); alert('密码已修改'); };
+        if (saveBtn) saveBtn.onclick = function() { changePassword(); };
     }
     // 恢复保存的数据
     loadLogisticsProfile();
@@ -665,6 +682,39 @@ const year = document.getElementById('logiProfileYear')?.value || '';
     if (navUserName) navUserName.innerHTML = '👤 ' + name + ' <span class="points">后勤</span>';
     
     Modal.close('infoModal');
+}
+
+async function changePassword() {
+    const oldPwd = document.getElementById('oldPassword')?.value;
+    const newPwd = document.getElementById('newPassword')?.value;
+    const confirmPwd = document.getElementById('confirmPassword')?.value;
+
+    if (!oldPwd || !newPwd || !confirmPwd) {
+        alert('请填写所有密码字段');
+        return;
+    }
+
+    if (newPwd !== confirmPwd) {
+        alert('新密码和确认密码不一致');
+        return;
+    }
+
+    if (newPwd.length < 6) {
+        alert('新密码长度不能少于6位');
+        return;
+    }
+
+    try {
+        const result = await logisticsApiCall('/password', 'PUT', { oldPassword: oldPwd, newPassword: newPwd });
+        if (result.success) {
+            alert('密码修改成功');
+            Modal.close('pwdModal');
+        } else {
+            alert(result.message || '密码修改失败');
+        }
+    } catch (error) {
+        alert(error.message || '密码修改失败');
+    }
 }
 
 function updateNavUserName(name) {

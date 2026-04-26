@@ -118,6 +118,7 @@ public class RecycleService {
         evaluation.setSelfCondition(appointment.getCondition());
         evaluation.setAdminCondition(adminCondition);
         evaluation.setPoints(points);
+        evaluation.setQuantity(appointment.getQuantity() != null ? appointment.getQuantity() : 1);
         evaluation.setCoverImage(appointment.getCoverImage());
         evaluation.setRemark(appointment.getRemark());
         evaluation.setStatus("APPROVED");
@@ -158,6 +159,15 @@ public class RecycleService {
     }
 
     @Transactional
+    public void updateEvaluationCondition(Long evaluationId, String adminCondition, Integer points) {
+        Evaluation evaluation = evaluationRepository.findById(evaluationId)
+                .orElseThrow(() -> new RuntimeException("评估记录不存在"));
+        if (adminCondition != null) evaluation.setAdminCondition(adminCondition);
+        if (points != null) evaluation.setPoints(points);
+        evaluationRepository.save(evaluation);
+    }
+
+    @Transactional
     public void syncPointsToStudent(Long evaluationId) {
         Evaluation evaluation = evaluationRepository.findById(evaluationId)
                 .orElseThrow(() -> new RuntimeException("评估记录不存在"));
@@ -166,8 +176,9 @@ public class RecycleService {
             throw new RuntimeException("只能同步已通过的评估");
         }
 
-        userService.addPoints(evaluation.getStudentId(), evaluation.getPoints(),
-                "REYCLE", evaluation.getBookName(), "BOOK");
+        int totalPoints = evaluation.getPoints() * (evaluation.getQuantity() != null ? evaluation.getQuantity() : 1);
+        userService.addPoints(evaluation.getStudentId(), totalPoints,
+                "REYCLE", evaluation.getBookName() + " x" + evaluation.getQuantity(), "BOOK");
         
         evaluation.setStatus("SYNCED");
         evaluationRepository.save(evaluation);
@@ -184,7 +195,7 @@ public class RecycleService {
         book.setIsbn(evaluation.getIsbn());
         book.setCondition(evaluation.getAdminCondition());
         book.setPoints(evaluation.getPoints());
-        book.setStock(1);
+        book.setStock(evaluation.getQuantity() != null ? evaluation.getQuantity() : 1);
         book.setCoverImage(evaluation.getCoverImage());
         book.setMajor("通用");
         book.setStatus("LISTED");
@@ -196,7 +207,7 @@ public class RecycleService {
         record.setBookId(book.getId());
         record.setBookName(book.getName());
         record.setType("IN");
-        record.setQuantity(1);
+        record.setQuantity(evaluation.getQuantity() != null ? evaluation.getQuantity() : 1);
         record.setOperator(operatorName != null ? operatorName : "系统");
         record.setRemark("评估上架: " + evaluation.getBookName());
         record.setCreateTime(LocalDateTime.now());
@@ -240,28 +251,28 @@ public class RecycleService {
             dailyLabels.add(day.format(dayFmt));
         }
 
-        // 2. 教材兑换率统计（已完成兑换，按书籍名称分组）→ 饼图
+        // 2. 教材兑换率统计（已完成兑换，按书籍名称分组，数量求和）→ 饼图
         List<BookExchange> bookExchanges = bookExchangeRepository.findAllByOrderByExchangeTimeDesc();
-        Map<String, Long> bookCount = bookExchanges.stream()
+        List<BookExchange> completedBookExchanges = bookExchanges.stream()
+                .filter(e -> "COMPLETED".equals(e.getStatus()))
                 .filter(e -> e.getBookName() != null && !e.getBookName().isEmpty())
-                .collect(Collectors.groupingBy(BookExchange::getBookName, Collectors.counting()));
-        List<String> exchangeLabels = new ArrayList<>(bookCount.keySet());
-        List<Long> exchangeData = new ArrayList<>(bookCount.values());
+                .toList();
+        Map<String, Integer> bookQtySum = completedBookExchanges.stream()
+                .collect(Collectors.groupingBy(BookExchange::getBookName, Collectors.summingInt(e -> e.getQuantity() != null ? e.getQuantity() : 1)));
+        List<String> exchangeLabels = new ArrayList<>(bookQtySum.keySet());
+        List<Long> exchangeData = bookQtySum.values().stream().map(v -> (long) v).toList();
         if (exchangeLabels.isEmpty()) {
             exchangeLabels = List.of("暂无兑换数据");
             exchangeData = List.of(0L);
         }
 
-        // 3. 热门教材统计（按评估量排名，取前5）→ 柱状图
-        Map<String, Long> bookEvalCount = evaluations.stream()
-                .filter(e -> e.getBookName() != null && !e.getBookName().isEmpty())
-                .collect(Collectors.groupingBy(Evaluation::getBookName, Collectors.counting()));
-        List<Map.Entry<String, Long>> topBooks = bookEvalCount.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+        // 3. 学科分类统计（已完成兑换，按书籍名称分组，数量求和）→ 柱状图
+        List<Map.Entry<String, Integer>> topBooks = bookQtySum.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .limit(5)
                 .toList();
         List<String> popularLabels = topBooks.stream().map(Map.Entry::getKey).toList();
-        List<Integer> popularData = topBooks.stream().map(e -> e.getValue().intValue()).toList();
+        List<Integer> popularData = topBooks.stream().map(Map.Entry::getValue).toList();
         if (popularLabels.isEmpty()) {
             popularLabels = List.of("暂无数据");
             popularData = List.of(0);

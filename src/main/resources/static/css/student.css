@@ -974,6 +974,93 @@
     font-size: 0.95rem;
 }
 
+/* ===== 奖品兑换弹窗 ===== */
+.prize-exchange-detail {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.prize-exchange-img {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #e1eff8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.prize-exchange-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.prize-exchange-info {
+    flex: 1;
+}
+
+.prize-exchange-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #174257;
+    margin-bottom: 6px;
+}
+
+.prize-exchange-points {
+    color: #e6a23c;
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.prize-exchange-stock {
+    color: #6c86a3;
+    font-size: 0.85rem;
+}
+
+.prize-exchange-form {
+    margin-bottom: 20px;
+}
+
+.prize-exchange-form .form-group {
+    margin-bottom: 12px;
+}
+
+.prize-exchange-form label {
+    display: block;
+    margin-bottom: 6px;
+    color: #174257;
+    font-weight: 500;
+}
+
+#prizeExchangeQuantity {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d0e2f2;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+#prizeExchangeQuantity:focus {
+    outline: none;
+    border-color: #1e6d8f;
+}
+
+.prize-exchange-total {
+    font-size: 1rem;
+    color: #174257;
+    font-weight: 600;
+    padding: 8px 0;
+    border-top: 1px dashed #e1eff8;
+    margin-top: 8px;
+}
+
 /* ===== 公告通知页面 ===== */
 .notice-main-full {
     padding: 30px 40px;
@@ -1579,4 +1666,55 @@
 .type-tag.type-prize {
     background: #f3e5f5;
     color: #6a1b9a;
+}
+
+/* ===== �Ѷ�/δ��״̬��ʶ ===== */
+.list-item.unread {
+    background: #fff9f0;
+}
+
+.list-item.unread:hover {
+    background: #fff3e0;
+}
+
+.unread-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #e53935;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* ===== ���Ԥ������ ===== */
+.warning-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px;
+    border-bottom: 1px solid #f0f4f8;
+}
+
+.warning-item:last-child {
+    border-bottom: none;
+}
+
+.warning-book {
+    flex: 1;
+    max-width: 70%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    color: #174257;
+}
+
+.stock-status {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    margin-left: 8px;
 }

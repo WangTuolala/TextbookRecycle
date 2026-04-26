@@ -63,8 +63,9 @@
 }
 .warning-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 20px;
+    justify-items: center;
 }
 .warning-card {
     background: #f8f9fa;
@@ -73,6 +74,8 @@
     border: 2px solid transparent;
     transition: transform 0.2s;
     text-align: center;
+    width: 100%;
+    max-width: 500px;
 }
 .warning-card:hover {
     transform: translateY(-4px);
@@ -121,7 +124,7 @@
     font-weight: 500;
     color: #174257;
     flex: 2;
-    text-align: center;
+    text-align: left;
 }
 .warning-stock {
     font-weight: 600;
@@ -1242,12 +1245,51 @@
 }
 
 .history-table-wrapper {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: 420px;
 }
 
 .announcement-history-table,
 .location-history-table {
     min-width: 900px;
+    table-layout: fixed;
+}
+
+/* 标题列固定宽度 */
+.announcement-history-table td:first-child {
+    width: 160px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 内容列固定宽度 */
+.announcement-history-table td:nth-child(2) {
+    width: 220px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 领取地点列固定宽度 */
+.location-history-table td:first-child {
+    width: 150px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 注意事项列固定宽度 */
+.location-history-table td:nth-child(2) {
+    width: 260px;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.4;
 }
 
 .announcement-history-table th,
@@ -1710,4 +1752,61 @@
     background: #28a745 !important;
     color: white !important;
     border: none;
+}
+/* ��ȡ��¼����ͼƬ */
+.prize-img-cell {
+    width: 70px;
+    text-align: center;
+}
+
+.prize-table-img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+/* 库存弹窗搜索下拉 */
+.book-search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    max-height: 240px;
+    overflow-y: auto;
+}
+.book-search-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.book-search-item:last-child { border-bottom: none; }
+.book-search-item:hover { background: #f0f7ff; }
+.book-search-item .book-name { font-weight: 500; color: #174257; }
+.book-search-item .book-isbn { font-size: 0.85em; color: #888; }
+.book-search-item .book-stock { font-size: 0.85em; color: #28a745; font-weight: 500; }
+.book-search-item .book-stock.low { color: #dc3545; }
+
+/* 弹窗静态文字 */
+.modal-static-text {
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    color: #174257;
+    font-weight: 500;
+    min-height: 20px;
+}
+
+#stockInModal .modal-field,
+#stockOutModal .modal-field {
+    position: relative;
 }

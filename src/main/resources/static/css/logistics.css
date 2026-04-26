@@ -511,12 +511,47 @@
 }
 
 .history-table-wrapper {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: 420px;
 }
 
 .announcement-history-table,
 .location-history-table {
     min-width: 900px;
+    table-layout: fixed;
+}
+
+.announcement-history-table td:first-child {
+    width: 160px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.announcement-history-table td:nth-child(2) {
+    width: 220px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.location-history-table td:first-child {
+    width: 150px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.location-history-table td:nth-child(2) {
+    width: 260px;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.4;
 }
 
 .announcement-history-table th,
@@ -758,7 +793,7 @@
 
 .delete-btn {
     background: none;
-    border: 1px solid transparent;
+    border: 1px solid #dc3545;
     color: #dc3545;
     font-size: 0.9rem;
     padding: 6px 16px;

@@ -26,6 +26,7 @@ public class Evaluation {
     private String selfCondition; // 学生自评
     private String adminCondition; // 管理员评定
     private Integer points;
+    private Integer quantity = 1;  // 教材数量
     @Column(columnDefinition = "TEXT")
     private String coverImage;
     private String remark;

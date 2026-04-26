@@ -114,7 +114,7 @@
 
             <!-- 图片上传区域 - 只保留封面图 -->
             <div class="form-group full-width">
-                <label>🖼️ 教材封面图</label>
+                <label>🖼️ 教材封面图 <span style="color:#e63946;">*</span></label>
                 <div class="upload-area">
                     <div class="upload-item">
                         <div class="upload-preview" id="coverPreview">
@@ -199,13 +199,7 @@
 
                 <div class="book-detail-quantity">
                     <label for="exchangeQuantity">兑换数量：</label>
-                    <select id="exchangeQuantity">
-                        <option value="1">1 本</option>
-                        <option value="2">2 本</option>
-                        <option value="3">3 本</option>
-                        <option value="4">4 本</option>
-                        <option value="5">5 本</option>
-                    </select>
+                    <input type="number" id="exchangeQuantity" value="1" min="1" max="5">
                 </div>
 
                 <div class="book-detail-actions">

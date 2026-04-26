@@ -209,9 +209,10 @@ function renderPickupTable(exchanges) {
             ? '<button class="btn-sm btn-pass" onclick="confirmBookPickup(' + ex.id + ')">确认领取</button>'
             : '-';
         const sName = ex.studentName ? ex.studentName.replace(/'/g, "\'") : '';
+        const imgSrc = ex.coverImage || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Crect width='50' height='50' fill='%23e1eff8' rx='10'/%3E%3Ctext x='25' y='33' text-anchor='middle' fill='%231e6d8f' font-size='24'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E`;
         return '<tr data-status="' + (ex.status||'') + '" data-student="' + sName + '">' +
             '<td class="student-name-cell" onclick="viewStudentInfo(\'' + ex.studentId + '\',\'' + sName + '\')">' + escapeHtml(ex.studentName || '-') + '</td>' +
-            '<td style="text-align:center;"><span style="font-size:24px;">📚</span></td>' +
+            '<td class="prize-img-cell"><img src="' + imgSrc + '" alt="" class="prize-table-img" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 50 50\'%3E%3Crect width=\'50\' height=\'50\' fill=\'%23e1eff8\' rx=\'10\'/%3E%3Ctext x=\'25\' y=\'33\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'24\'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E\'"></td>' +
             '<td>' + escapeHtml(ex.bookName || '-') + '</td>' +
             '<td>' + (ex.pointsCost || 0) + '</td>' +
             '<td>' + time + '</td>' +
@@ -443,12 +444,14 @@ function renderEvaluateTable() {
         let actions = '';
         if (item.status === 'PENDING') {
             if (item._sourceType === 'appointment') {
-                actions = '<button class="btn-sm btn-pass" onclick="approveAppointment(' + item._origId + ',this)">通过</button>';
+                actions = '<button class="btn-sm btn-pass" onclick="approveAppointment(' + item._origId + ',this)">通过</button>' +
+                         '<button class="btn-sm btn-reject" onclick="rejectAppointment(' + item._origId + ',this)">拒绝</button>';
             } else {
-                actions = '<button class="btn-sm btn-pass" onclick="approveEvaluate(\'' + item.id + '\',this)">通过</button>';
+                actions = '<button class="btn-sm btn-pass" onclick="approveEvaluate(\'' + item.id + '\',this)">通过</button>' +
+                         '<button class="btn-sm btn-reject" onclick="rejectEvaluate(\'' + item.id + '\',this)">拒绝</button>';
             }
         } else if (item.status === 'APPROVED') {
-            actions = '<button class="btn-sm btn-sync" onclick="syncEvaluate(\'' + item.id + '\',this)">同步积分</button>' +
+            actions = '<button class="btn-sm btn-sync" onclick="openSyncModal(\'' + item.id + '\')">同步积分</button>' +
                       '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
         } else if (item.status === 'SYNCED') {
             actions = '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
@@ -463,7 +466,7 @@ function renderEvaluateTable() {
         const selectDisabled = '';
         return '<tr data-id="' + item.id + '">' +
             '<td class="appointment-link" onclick="showAppointmentDetail(\'' + item.id + '\')">&#128196; ' + (item.appointmentId || '-') + '</td>' +
-            '<td class="student-name-cell" onclick="viewStudentInfo(\'' + sId + '\',\'' + sName + '\')">' + (item.studentName ? item.studentName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.studentUsername || sId || '-') + '</small></td>' +
+            '<td class="student-name-cell" onclick="viewStudentInfo(\'' + sId + '\',\'' + esc(item.studentName) + '\')">' + (item.studentName ? item.studentName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.studentUsername || sId || '-') + '</small></td>' +
             '<td style="text-align:left;">' + (item.bookName ? item.bookName.replace(/</g,'&lt;') : '-') + '<br><small>' + (item.author || '') + '</small></td>' +
             '<td>' + (item.selfCondition || '-') + '</td>' +
             '<td><select class="evaluate-select" data-id="' + item.id + '" onchange="onConditionChange(this,\'' + item.id + '\')"' + selectDisabled + '>' +
@@ -521,12 +524,66 @@ window.approveAppointment = async function(appointmentId, btn) {
     }
 };
 
-window.syncEvaluate = async function(id, btn) {
-    if (!confirm('确认同步积分？将为学生增加相应积分。')) return;
-    if (btn) btn.disabled = true;
+window.openSyncModal = function(id) {
+    const item = window.evaluateData.find(e => e.id === id);
+    if (!item) return;
+    window._syncEvalId = id;
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    const cond = item.adminCondition || '良好';
+    document.getElementById('syncBookName').innerText = item.bookName || '-';
+    document.getElementById('syncStudentName').innerText = (item.studentName || '-') + '（' + (item.studentUsername || item.studentId || '-') + '）';
+    const condSel = document.getElementById('syncCondition');
+    condSel.value = cond;
+    document.getElementById('syncPointsDisplay').innerText = ruleMap[cond] || 0;
+    document.getElementById('confirmSyncBtn').onclick = function() { confirmSync(id); };
+    Modal.open('syncModal');
+};
+
+window.updateSyncPoints = function() {
+    const cond = document.getElementById('syncCondition').value;
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    document.getElementById('syncPointsDisplay').innerText = ruleMap[cond] || 0;
+};
+
+window.confirmSync = async function(id) {
+    const cond = document.getElementById('syncCondition').value;
+    const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
+    const pts = ruleMap[cond] || 0;
+    const btn = document.getElementById('confirmSyncBtn');
+    btn.disabled = true;
     try {
+        await adminApiCall('/evaluations/' + id + '/condition', 'PUT', { adminCondition: cond, points: pts });
         await adminApiCall('/evaluations/' + id + '/sync', 'POST');
         alert('积分同步成功！');
+        Modal.close('syncModal');
+        await loadEvaluateData();
+        renderEvaluateTable();
+    } catch (error) {
+        alert(error.message);
+        btn.disabled = false;
+    }
+};
+
+window.rejectAppointment = async function(appointmentId, btn) {
+    if (!confirm('确定要拒绝该预约吗？')) return;
+    if (btn) btn.disabled = true;
+    try {
+        await adminApiCall('/appointments/' + appointmentId + '/reject', 'POST');
+        alert('已拒绝预约');
+        await loadEvaluateData();
+        renderEvaluateTable();
+    } catch (error) {
+        alert(error.message);
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.rejectEvaluate = async function(id, btn) {
+    if (!confirm('确定要拒绝该评估吗？')) return;
+    if (btn) btn.disabled = true;
+    try {
+        await adminApiCall('/evaluations/' + id + '/reject', 'POST');
+        alert('已拒绝评估');
         await loadEvaluateData();
         renderEvaluateTable();
     } catch (error) {
@@ -686,6 +743,39 @@ async function saveProfile() {
     }
 }
 
+async function changePassword() {
+    const oldPwd = document.getElementById('oldPassword')?.value;
+    const newPwd = document.getElementById('newPassword')?.value;
+    const confirmPwd = document.getElementById('confirmPassword')?.value;
+
+    if (!oldPwd || !newPwd || !confirmPwd) {
+        alert('请填写所有密码字段');
+        return;
+    }
+
+    if (newPwd !== confirmPwd) {
+        alert('新密码和确认密码不一致');
+        return;
+    }
+
+    if (newPwd.length < 6) {
+        alert('新密码长度不能少于6位');
+        return;
+    }
+
+    try {
+        const result = await adminApiCall('/password', 'PUT', { oldPassword: oldPwd, newPassword: newPwd });
+        if (result.success) {
+            alert('密码修改成功');
+            Modal.close('pwdModal');
+        } else {
+            alert(result.message || '密码修改失败');
+        }
+    } catch (error) {
+        alert(error.message || '密码修改失败');
+    }
+}
+
 // ==================== 积分规则页面 ====================
 async function initRulePage() {
     if (!document.querySelector('.rule-page')) return;
@@ -786,8 +876,16 @@ async function loadBooksForMgmt() {
 
 async function loadCategoriesForBookForm() {
     try {
-        const result = await adminApiCall('/categories', 'GET');
-        const categories = result.data || [];
+        // 联动：检查分类是否在其他页面被更新过，若是则重新加载
+        const lastUpdated = sessionStorage.getItem('categories_updated');
+        const cached = sessionStorage.getItem('categories_cache');
+        const allCategories = (!lastUpdated && cached)
+            ? JSON.parse(cached)
+            : (await adminApiCall('/categories', 'GET')).data || [];
+        if (lastUpdated) sessionStorage.removeItem('categories_updated');
+        sessionStorage.setItem('categories_cache', JSON.stringify(allCategories));
+        // 只加载 ACTIVE（启用）的专业用于下拉选择
+        const activeCategories = allCategories.filter(c => c.status === 'ACTIVE');
         const selects = [
             document.getElementById('bookMajorFilter'),
             document.getElementById('bookMajor')
@@ -795,8 +893,15 @@ async function loadCategoriesForBookForm() {
         selects.forEach(sel => {
             if (!sel) return;
             const currentVal = sel.value;
-            sel.innerHTML = '<option value="">全部专业</option>' +
-                categories.map(c => '<option value="' + c.name + '">' + c.name + '</option>').join('');
+            // bookMajorFilter 用全部，bookMajor 只用启用的
+            const isFilter = sel.id === 'bookMajorFilter';
+            const list = isFilter ? allCategories : activeCategories;
+            sel.innerHTML = '<option value="">' + (isFilter ? '全部专业' : '请选择专业') + '</option>' +
+                list.map(c => {
+                    const disabled = (!isFilter && c.status !== 'ACTIVE') ? ' disabled' : '';
+                    const label = c.status !== 'ACTIVE' ? c.name + '（已禁用）' : c.name;
+                    return '<option value="' + c.name + '"' + disabled + '>' + label + '</option>';
+                }).join('');
             sel.value = currentVal;
         });
     } catch (error) {
@@ -826,6 +931,7 @@ function openBookModal(book) {
     document.getElementById('coverPreview').innerHTML = '';
     document.getElementById('bookPointsDisplay').innerText = '—';
     document.getElementById('bookPoints').value = '0';
+    document.getElementById('bookStatus').value = 'LISTED';
     document.getElementById('bookModalTitle').innerText = '📖 新增书籍';
     document.getElementById('bookCoverFile').required = true;
 
@@ -854,6 +960,7 @@ function openBookModal(book) {
 
 function openBookModalWithPrefill(prefill) {
     openBookModal();
+    document.getElementById('bookStatus').value = 'LISTED';
     if (prefill.name) document.getElementById('bookName').value = prefill.name;
     if (prefill.author) document.getElementById('bookAuthor').value = prefill.author;
     if (prefill.publisher) document.getElementById('bookPublisher').value = prefill.publisher;
@@ -1149,6 +1256,15 @@ window.saveBook = async function() {
 // ==================== 书籍管理页面 ====================
 async function initBookMgmtPage() {
     if (!document.querySelector('.book-mgmt-main')) return;
+
+    // 页面加载时强制重置筛选条件，避免残留状态导致书籍不显示
+    const statusFilterEl = document.getElementById('bookStatusFilter');
+    const majorFilterEl = document.getElementById('bookMajorFilter');
+    const searchInputEl = document.getElementById('bookSearchInput');
+    if (statusFilterEl) statusFilterEl.value = 'all';
+    if (majorFilterEl) majorFilterEl.value = 'all';
+    if (searchInputEl) searchInputEl.value = '';
+
     await Promise.all([
         loadBooksForMgmt(),
         loadCategoriesForBookForm(),
@@ -1226,7 +1342,7 @@ async function initInventoryCheckPage() {
 // ---- 全部库存 ----
 async function loadInventoryBooks() {
     try {
-        const result = await adminApiCall('/inventory/all-records', 'GET');
+        const result = await adminApiCall('/inventory/summary', 'GET');
         window.inventoryBooks = result.data || [];
         renderInventoryTable();
     } catch (error) {
@@ -1251,20 +1367,16 @@ function renderInventoryTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;">暂无库存数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;">暂无库存数据</td></tr>';
         return;
     }
 
     tbody.innerHTML = filtered.map(r => {
-        const typeLabel = r.type === 'IN' ? '入库' : '出库';
-        const typeClass = r.type === 'IN' ? 'listed' : 'delisted';
         return '<tr>' +
-            '<td>' + escapeHtml(r.bookName || '-') + '</td>' +
+            '<td style="text-align:left;">' + escapeHtml(r.bookName || '-') + '</td>' +
             '<td>' + escapeHtml(r.isbn || '-') + '</td>' +
-            '<td><span class="status-badge ' + typeClass + '">' + typeLabel + '</span></td>' +
-            '<td>' + (r.quantity||0) + '</td>' +
-            '<td>' + (r.time ? formatDateTime(r.time) : '-') + '</td>' +
-            '<td>' + escapeHtml(r.operator || '-') + '</td></tr>';
+            '<td>' + (r.totalStock != null ? r.totalStock : 0) + '</td>' +
+            '<td>' + escapeHtml(r.lastOperator || '-') + '</td></tr>';
     }).join('');
 }
 
@@ -1278,97 +1390,149 @@ function bindInventoryEvents() {
         inp.addEventListener('input', renderInventoryTable);
         inp.addEventListener('keypress', e => { if (e.key === 'Enter') renderInventoryTable(); });
     }
-    loadStockInBookSelect();
-    loadStockOutBookSelect();
-}
-
-async function loadStockInBookSelect() {
-    try {
-        const result = await adminApiCall('/inventory/books', 'GET');
-        const books = result.data || [];
-        const sel = document.getElementById('stockInBookSelect');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">-- 请选择教材 --</option>' +
-            books.map(b => '<option value="' + b.id + '">' + (b.name||'-') + '（库存:' + (b.stock||0) + '）</option>').join('');
-    } catch (error) { console.error('加载教材下拉失败', error); }
-}
-
-async function loadStockOutBookSelect() {
-    try {
-        const result = await adminApiCall('/inventory/books', 'GET');
-        const books = result.data || [];
-        const sel = document.getElementById('stockOutBookSelect');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">-- 请选择教材 --</option>' +
-            books.map(b => '<option value="' + b.id + '">' + (b.name||'-') + '（库存:' + (b.stock||0) + '）</option>').join('');
-    } catch (error) { console.error('加载教材下拉失败', error); }
 }
 
 window.openStockInModal = function() {
-    loadStockInBookSelect();
+    document.getElementById('stockInBookInput').value = '';
+    document.getElementById('stockInBookId').value = '';
+    document.getElementById('stockInIsbn').innerText = '-';
+    document.getElementById('stockInCurrentStock').innerText = '-';
+    document.getElementById('stockInQuantity').value = '1';
+    document.getElementById('stockInOperator').value = '';
+    document.getElementById('stockInRemark').value = '';
+    document.getElementById('stockInDropdown').style.display = 'none';
+    const u = getCurrentUser();
+    if (u && u.name) document.getElementById('stockInOperator').value = u.name;
     Modal.open('stockInModal');
 };
 
 window.openStockOutModal = function() {
-    loadStockOutBookSelect();
+    document.getElementById('stockOutBookInput').value = '';
+    document.getElementById('stockOutBookId').value = '';
+    document.getElementById('stockOutIsbn').innerText = '-';
+    document.getElementById('stockOutCurrentStock').innerText = '-';
+    document.getElementById('stockOutQuantity').value = '1';
+    document.getElementById('stockOutOperator').value = '';
+    document.getElementById('stockOutRemark').value = '';
+    document.getElementById('stockOutDropdown').style.display = 'none';
+    const u = getCurrentUser();
+    if (u && u.name) document.getElementById('stockOutOperator').value = u.name;
     Modal.open('stockOutModal');
 };
 
-window.openStockInForBook = function(bookId) {
-    document.getElementById('stockInBookSelect').value = bookId;
-    Modal.open('stockInModal');
+window.filterStockInBooks = async function() {
+    const input = document.getElementById('stockInBookInput');
+    const keyword = input.value.trim();
+    const dropdown = document.getElementById('stockInDropdown');
+    if (!keyword) { dropdown.style.display = 'none'; return; }
+    try {
+        const result = await adminApiCall('/inventory/books?keyword=' + encodeURIComponent(keyword), 'GET');
+        const books = result.data || [];
+        if (books.length === 0) {
+            dropdown.innerHTML = '<div class="book-search-item" style="color:#888;cursor:default;">未找到匹配的教材</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        dropdown.innerHTML = books.map(b => {
+            const stock = b.stock != null ? b.stock : 0;
+            const stockClass = stock === 0 ? 'low' : '';
+            return '<div class="book-search-item" onclick="window.selectStockInBook(\'' + b.id + '\',\'' + (b.name||'').replace(/'/g, '\\\'') + '\',\'' + (b.isbn||'').replace(/'/g, '\\\'') + '\',' + stock + ')">' +
+                '<div><div class="book-name">' + escapeHtml(b.name||'-') + '</div><div class="book-isbn">' + escapeHtml(b.isbn||'-') + '</div></div>' +
+                '<div class="book-stock ' + stockClass + '">库存:' + stock + '</div></div>';
+        }).join('');
+        dropdown.style.display = 'block';
+    } catch (e) { console.error(e); }
 };
 
-window.openStockOutForBook = function(bookId) {
-    document.getElementById('stockOutBookSelect').value = bookId;
-    Modal.open('stockOutModal');
+window.filterStockOutBooks = async function() {
+    const input = document.getElementById('stockOutBookInput');
+    const keyword = input.value.trim();
+    const dropdown = document.getElementById('stockOutDropdown');
+    if (!keyword) { dropdown.style.display = 'none'; return; }
+    try {
+        const result = await adminApiCall('/inventory/books?keyword=' + encodeURIComponent(keyword), 'GET');
+        const books = result.data || [];
+        if (books.length === 0) {
+            dropdown.innerHTML = '<div class="book-search-item" style="color:#888;cursor:default;">未找到匹配的教材</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        dropdown.innerHTML = books.map(b => {
+            const stock = b.stock != null ? b.stock : 0;
+            const stockClass = stock === 0 ? 'low' : '';
+            return '<div class="book-search-item" onclick="window.selectStockOutBook(\'' + b.id + '\',\'' + (b.name||'').replace(/'/g, '\\\'') + '\',\'' + (b.isbn||'').replace(/'/g, '\\\'') + '\',' + stock + ')">' +
+                '<div><div class="book-name">' + escapeHtml(b.name||'-') + '</div><div class="book-isbn">' + escapeHtml(b.isbn||'-') + '</div></div>' +
+                '<div class="book-stock ' + stockClass + '">库存:' + stock + '</div></div>';
+        }).join('');
+        dropdown.style.display = 'block';
+    } catch (e) { console.error(e); }
+};
+
+window.selectStockInBook = function(id, name, isbn, stock) {
+    document.getElementById('stockInBookInput').value = name;
+    document.getElementById('stockInBookId').value = id;
+    document.getElementById('stockInIsbn').innerText = isbn || '-';
+    document.getElementById('stockInCurrentStock').innerText = stock;
+    document.getElementById('stockInDropdown').style.display = 'none';
+};
+
+window.selectStockOutBook = function(id, name, isbn, stock) {
+    document.getElementById('stockOutBookInput').value = name;
+    document.getElementById('stockOutBookId').value = id;
+    document.getElementById('stockOutIsbn').innerText = isbn || '-';
+    document.getElementById('stockOutCurrentStock').innerText = stock;
+    document.getElementById('stockOutDropdown').style.display = 'none';
+};
+
+window.onStockInBlur = function() {
+    setTimeout(() => { document.getElementById('stockInDropdown').style.display = 'none'; }, 200);
+};
+
+window.onStockOutBlur = function() {
+    setTimeout(() => { document.getElementById('stockOutDropdown').style.display = 'none'; }, 200);
 };
 
 window.submitStockIn = async function() {
-    const bookId = document.getElementById('stockInBookSelect').value;
+    const bookId = document.getElementById('stockInBookId').value;
     const qty = document.getElementById('stockInQuantity').value;
-    const remark = document.getElementById('stockInRemark').value;
+    const operator = document.getElementById('stockInOperator').value.trim();
+    const remark = document.getElementById('stockInRemark').value.trim();
     if (!bookId) { alert('请选择教材'); return; }
-    if (!qty || qty <= 0) { alert('请输入正确的数量'); return; }
+    if (!qty || parseInt(qty) <= 0) { alert('请输入正确的数量'); return; }
+    if (!operator) { alert('请输入经手人'); return; }
     try {
-        const u = getCurrentUser();
-        const operatorName = u && u.name ? u.name : '管理员';
         await adminApiCall('/inventory/in', 'POST', {
             bookId: parseInt(bookId),
             quantity: parseInt(qty),
-            remark: remark || ''
-        }, { 'X-Operator-Name': operatorName });
+            remark: operator + (remark ? ' ' + remark : '')
+        });
         Modal.close('stockInModal');
-        document.getElementById('stockInQuantity').value = '1';
-        document.getElementById('stockInRemark').value = '';
         await loadInventoryBooks();
         renderInventoryTable();
-        alert('入库成功');
+        alert('入库成功！');
     } catch (error) {
         alert(error.message);
     }
 };
 
 window.submitStockOut = async function() {
-    const bookId = document.getElementById('stockOutBookSelect').value;
+    const bookId = document.getElementById('stockOutBookId').value;
     const qty = document.getElementById('stockOutQuantity').value;
-    const remark = document.getElementById('stockOutRemark').value;
+    const operator = document.getElementById('stockOutOperator').value.trim();
+    const remark = document.getElementById('stockOutRemark').value.trim();
     if (!bookId) { alert('请选择教材'); return; }
-    if (!qty || qty <= 0) { alert('请输入正确的数量'); return; }
+    if (!qty || parseInt(qty) <= 0) { alert('请输入正确的数量'); return; }
+    if (!operator) { alert('请输入经手人'); return; }
     try {
-        const u = getCurrentUser();
-        const operatorName = u && u.name ? u.name : '管理员';
         await adminApiCall('/inventory/out', 'POST', {
             bookId: parseInt(bookId),
             quantity: parseInt(qty),
-            remark: remark || ''
-        }, { 'X-Operator-Name': operatorName });
+            remark: operator + (remark ? ' ' + remark : '')
+        });
         Modal.close('stockOutModal');
-        document.getElementById('stockOutQuantity').value = '1';
-        document.getElementById('stockOutRemark').value = '';
         await loadInventoryBooks();
         renderInventoryTable();
-        alert('出库成功');
+        alert('出库成功！');
     } catch (error) {
         alert(error.message);
     }
@@ -1398,36 +1562,43 @@ function renderInventoryInTable() {
         '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
         '<td>' + (r.isbn||'-') + '</td>' +
         '<td>+' + (r.quantity||0) + '</td>' +
-        '<td>' + formatDateTime(r.createTime) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
         '<td>' + (r.operator||'-') + '</td>' +
         '<td>' + (r.remark||'-') + '</td></tr>'
     ).join('');
 }
 
 function bindInventoryInEvents() {
-    const inp = document.querySelector('.inventory-in-page input[type="text"]');
-    if (inp) inp.addEventListener('input', e => {
-        const term = e.target.value.toLowerCase();
-        const filtered = (window.inventoryInRecords||[]).filter(r =>
-            (r.bookName||'').toLowerCase().includes(term) ||
-            (r.isbn||'').toLowerCase().includes(term)
-        );
-        const tbody = document.getElementById('inventoryInTableBody');
-        if (!tbody) return;
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无入库记录</td></tr>';
-            return;
-        }
-        tbody.innerHTML = filtered.map(r => '<tr>' +
-            '<td>' + (r.id||'-') + '</td>' +
-            '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
-            '<td>' + (r.isbn||'-') + '</td>' +
-            '<td>+' + (r.quantity||0) + '</td>' +
-            '<td>' + formatDateTime(r.createTime) + '</td>' +
-            '<td>' + (r.operator||'-') + '</td>' +
-            '<td>' + (r.remark||'-') + '</td></tr>'
-        ).join('');
-    });
+    const inp = document.getElementById('inventoryInSearchInput');
+    const btn = document.getElementById('inventoryInSearchBtn');
+    if (inp) {
+        inp.addEventListener('input', searchInventoryInTable);
+        inp.addEventListener('keypress', e => { if (e.key === 'Enter') searchInventoryInTable(); });
+    }
+    if (btn) btn.addEventListener('click', searchInventoryInTable);
+}
+
+function searchInventoryInTable() {
+    const tbody = document.getElementById('inventoryInTableBody');
+    if (!tbody) return;
+    const term = (document.getElementById('inventoryInSearchInput')?.value || '').toLowerCase();
+    const filtered = (window.inventoryInRecords||[]).filter(r =>
+        (r.bookName||'').toLowerCase().includes(term) ||
+        (r.isbn||'').toLowerCase().includes(term)
+    );
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无入库记录</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filtered.map(r => '<tr>' +
+        '<td>' + (r.id||'-') + '</td>' +
+        '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (r.isbn||'-') + '</td>' +
+        '<td>+' + (r.quantity||0) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
+        '<td>' + (r.operator||'-') + '</td>' +
+        '<td>' + (r.remark||'-') + '</td></tr>'
+    ).join('');
 }
 
 // ---- 出库记录 ----
@@ -1454,36 +1625,43 @@ function renderInventoryOutTable() {
         '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
         '<td>' + (r.isbn||'-') + '</td>' +
         '<td>-' + (r.quantity||0) + '</td>' +
-        '<td>' + formatDateTime(r.createTime) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
         '<td>' + (r.operator||'-') + '</td>' +
         '<td>' + (r.remark||'-') + '</td></tr>'
     ).join('');
 }
 
 function bindInventoryOutEvents() {
-    const inp = document.querySelector('.inventory-out-page input[type="text"]');
-    if (inp) inp.addEventListener('input', e => {
-        const term = e.target.value.toLowerCase();
-        const filtered = (window.inventoryOutRecords||[]).filter(r =>
-            (r.bookName||'').toLowerCase().includes(term) ||
-            (r.isbn||'').toLowerCase().includes(term)
-        );
-        const tbody = document.getElementById('inventoryOutTableBody');
-        if (!tbody) return;
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无出库记录</td></tr>';
-            return;
-        }
-        tbody.innerHTML = filtered.map(r => '<tr>' +
-            '<td>' + (r.id||'-') + '</td>' +
-            '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
-            '<td>' + (r.isbn||'-') + '</td>' +
-            '<td>-' + (r.quantity||0) + '</td>' +
-            '<td>' + formatDateTime(r.createTime) + '</td>' +
-            '<td>' + (r.operator||'-') + '</td>' +
-            '<td>' + (r.remark||'-') + '</td></tr>'
-        ).join('');
-    });
+    const inp = document.getElementById('inventoryOutSearchInput');
+    const btn = document.getElementById('inventoryOutSearchBtn');
+    if (inp) {
+        inp.addEventListener('input', searchInventoryOutTable);
+        inp.addEventListener('keypress', e => { if (e.key === 'Enter') searchInventoryOutTable(); });
+    }
+    if (btn) btn.addEventListener('click', searchInventoryOutTable);
+}
+
+function searchInventoryOutTable() {
+    const tbody = document.getElementById('inventoryOutTableBody');
+    if (!tbody) return;
+    const term = (document.getElementById('inventoryOutSearchInput')?.value || '').toLowerCase();
+    const filtered = (window.inventoryOutRecords||[]).filter(r =>
+        (r.bookName||'').toLowerCase().includes(term) ||
+        (r.isbn||'').toLowerCase().includes(term)
+    );
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无出库记录</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filtered.map(r => '<tr>' +
+        '<td>' + (r.id||'-') + '</td>' +
+        '<td style="text-align:left;">' + (r.bookName||'-').replace(/</g,'&lt;') + '</td>' +
+        '<td>' + (r.isbn||'-') + '</td>' +
+        '<td>-' + (r.quantity||0) + '</td>' +
+        '<td>' + formatDate(r.createTime) + '</td>' +
+        '<td>' + (r.operator||'-') + '</td>' +
+        '<td>' + (r.remark||'-') + '</td></tr>'
+    ).join('');
 }
 
 // ---- 库存盘点 ----
@@ -1510,7 +1688,8 @@ function renderCheckTable() {
     let filtered = (window.stockChecks || []).slice();
     if (searchTerm) {
         filtered = filtered.filter(c =>
-            (c.bookName||'').toLowerCase().includes(searchTerm)
+            (c.bookName||'').toLowerCase().includes(searchTerm) ||
+            (c.isbn||'').toLowerCase().includes(searchTerm)
         );
     }
     if (filtered.length === 0) {
@@ -1528,7 +1707,8 @@ function renderCheckTable() {
             '<td>' + (c.actualStock || 0) + '</td>' +
             '<td class="diff-cell ' + diffClass + '">' + diffStr + '</td>' +
             '<td>' + (c.remark || '-') + '</td>' +
-            '<td>' + escapeHtml(c.operator || '-') + '</td></tr>';
+            '<td>' + escapeHtml(c.operator || '-') + '</td>' +
+            '<td>' + formatDate(c.checkTime) + '</td></tr>';
     }).join('');
     updateCheckStats();
 }
@@ -1539,7 +1719,6 @@ function searchCheckTable() {
 
 function updateCheckStats() {
     const checks = window.stockChecks || [];
-    let totalStock = 0;
     let profit = 0;
     let loss = 0;
     checks.forEach(c => {
@@ -1547,7 +1726,9 @@ function updateCheckStats() {
         if (c.diff < 0) loss += Math.abs(c.diff);
     });
     const el = id => document.getElementById(id);
-    if (el('statTotalStock')) el('statTotalStock').innerText = checks.reduce((s, c) => s + (c.actualStock||0), 0);
+    // 总库存 = 所有图书的系统库存总和（从 Book 表）
+    const totalStock = (window.allBooksForCheck || []).reduce((s, b) => s + (b.stock || 0), 0);
+    if (el('statTotalStock')) el('statTotalStock').innerText = totalStock;
     if (el('statProfit')) el('statProfit').innerText = profit;
     if (el('statLoss')) el('statLoss').innerText = loss;
     if (el('diffTotal')) {
@@ -1724,7 +1905,8 @@ async function loadLowStockBooks() {
             } else {
                 container.innerHTML = books.map(book =>
                     '<div class="warning-item">' +
-                    '<span class="warning-book">' + (book.name||'-').replace(/</g,'&lt;') + '（库存:' + book.stock + '）</span>' +
+                    '<span class="warning-book">' + (book.name||'-').replace(/</g,'&lt;') + '</span>' +
+                    '<span class="warning-stock">库存:' + book.stock + '</span>' +
                     '</div>'
                 ).join('');
             }
@@ -1778,7 +1960,7 @@ async function loadChartData() {
             if (exchangeChartInstance) exchangeChartInstance.destroy();
             const ctx2 = exchangeCanvas.getContext('2d');
             exchangeChartInstance = new Chart(ctx2, {
-                type: 'doughnut',
+                type: 'pie',
                 data: {
                     labels: data.exchangeLabels || [],
                     datasets: [{
@@ -1799,7 +1981,6 @@ async function loadChartData() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '55%',
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -1853,7 +2034,7 @@ async function loadChartData() {
                         tooltip: {
                             callbacks: {
                                 label: function(ctx) {
-                                    return ' 评估量: ' + ctx.parsed.x + ' 本';
+                                    return ' 兑换量: ' + ctx.parsed.x + ' 本';
                                 }
                             }
                         }
@@ -1893,6 +2074,8 @@ async function saveCategory() {
     const id = document.getElementById('categoryId').value;
     const name = document.getElementById('categoryName').value.trim();
     if (!name) { alert('请输入专业名称'); return; }
+    const actionLabel = id ? '更新' : '新增';
+    if (!confirm('确定要' + actionLabel + '专业分类 "' + name + '" 吗？')) return;
     const payload = { name: name, status: 'ACTIVE' };
     try {
         if (id) {
@@ -1902,6 +2085,7 @@ async function saveCategory() {
             await adminApiCall('/categories', 'POST', payload);
             alert('新增成功');
         }
+        sessionStorage.setItem('categories_updated', Date.now().toString());
         Modal.close('categoryModal');
         await loadCategories();
     } catch (e) {
@@ -1914,8 +2098,11 @@ async function toggleCategory(id) {
     const cat = cats.find(c => c.id == id);
     if (!cat) return;
     const newStatus = cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const actionLabel = newStatus === 'ACTIVE' ? '启用' : '禁用';
+    if (!confirm('确定要' + actionLabel + '该专业分类 "' + (cat.name || '') + '" 吗？')) return;
     try {
         await adminApiCall('/categories/' + id, 'PUT', { name: cat.name, status: newStatus });
+        sessionStorage.setItem('categories_updated', Date.now().toString());
         await loadCategories();
     } catch (e) {
         alert('操作失败: ' + (e.message || ''));
@@ -1935,7 +2122,7 @@ function renderCategoryTable(cats) {
         const statusClass = isActive ? 'listed' : 'delisted';
         const toggleLabel = isActive ? '禁用' : '启用';
         const toggleClass = isActive ? 'btn-danger' : 'btn-pass';
-        const createdTime = cat.createTime ? formatDateTime(cat.createTime) : '-';
+        const createdTime = cat.createTime ? formatDate(cat.createTime) : '-';
         return '<tr>' +
             '<td>' + escapeHtml(cat.name || '-') + '</td>' +
             '<td><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>' +

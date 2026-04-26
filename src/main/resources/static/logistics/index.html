@@ -28,6 +28,11 @@
     <div class="pickup-list">
         <div class="pickup-header">
             <h3 class="section-title">📋 今日待领取清单</h3>
+            <div class="pickup-stats">
+                <span class="stat-badge">总计: <strong id="pickupTotal">0</strong> 条</span>
+                <span class="stat-badge pending-badge">待领取: <strong id="pickupPending">0</strong></span>
+                <span class="stat-badge completed-badge">已领取: <strong id="pickupCompleted">0</strong></span>
+            </div>
             <div class="pickup-filters">
                 <div class="filter-group">
                     <span class="filter-label">状态筛选：</span>
@@ -43,11 +48,6 @@
                 </div>
                 <button class="btn-secondary" onclick="resetPickupFilters()">重置筛选</button>
             </div>
-        </div>
-        <div class="pickup-stats">
-            <span class="stat-badge">总计: <strong id="pickupTotal">0</strong> 条</span>
-            <span class="stat-badge pending-badge">待领取: <strong id="pickupPending">0</strong></span>
-            <span class="stat-badge completed-badge">已领取: <strong id="pickupCompleted">0</strong></span>
         </div>
         <div class="records-table-wrapper">
             <table class="data-table" id="pickupTable">

@@ -48,11 +48,24 @@ public class BookService {
     }
 
     public List<Book> getAllBooks() {
+        return bookRepository.findByStatus("LISTED");
+    }
+
+    public List<Book> getAllBooksAdmin() {
         return bookRepository.findAll();
     }
 
     public List<Book> getBooksByMajor(String major) {
         return bookRepository.findByStatusAndMajor("LISTED", major);
+    }
+
+    public List<String> getAllListedMajors() {
+        return bookRepository.findByStatus("LISTED").stream()
+                .map(Book::getMajor)
+                .filter(m -> m != null && !m.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     public Optional<Book> getBookById(Long id) {
@@ -157,7 +170,8 @@ public class BookService {
             throw new RuntimeException("积分不足");
         }
         
-        userService.deductPoints(studentId, totalCost, "EXCHANGE", book.getName(), "BOOK");
+        // 暂不扣除积分，等后勤/管理员确认后再扣除并记流水
+        // (改为在 confirmBookPickup / confirmPickup 时再扣积分)
 
         String studentName = userService.findById(studentId)
                 .map(u -> u.getName())
@@ -184,6 +198,7 @@ public class BookService {
         exchange.setStudentName(studentName);
         exchange.setBookId(bookId);
         exchange.setBookName(book.getName());
+        exchange.setCoverImage(book.getCoverImage());
         exchange.setQuantity(quantity);
         exchange.setPointsCost(totalCost);
         exchange.setExchangeTime(LocalDateTime.now());

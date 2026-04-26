@@ -17,6 +17,7 @@ import java.util.Map;
 public class LogisticsController {
     private final PrizeService prizeService;
     private final AnnouncementService announcementService;
+    private final UserService userService;
 
     // ===== 奖品管理 =====
     @GetMapping("/prizes")
@@ -89,6 +90,21 @@ public class LogisticsController {
     @GetMapping("/points-rule")
     public ResponseEntity<ApiResponse<PointsRule>> getPointsRule() {
         return ResponseEntity.ok(ApiResponse.success(prizeService.getPointsRule()));
+    }
+
+    // ===== 个人信息 =====
+    @PutMapping("/password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @RequestBody Map<String, String> request,
+            @RequestHeader("X-User-Id") Long userId) {
+        try {
+            String oldPassword = request.get("oldPassword");
+            String newPassword = request.get("newPassword");
+            userService.updatePassword(userId, oldPassword, newPassword);
+            return ResponseEntity.ok(ApiResponse.success("密码修改成功"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     // ===== 公告管理 =====

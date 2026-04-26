@@ -1,4 +1,5 @@
 const STUDENT_API = '/student';
+let isExchanging = false;
 
 async function studentApiCall(endpoint, method, body) {
     const currentUser = getCurrentUser();
@@ -59,16 +60,18 @@ function renderBookCards(books) {
     let html = '';
     sortedBooks.forEach(book => {
         const isSoldOut = book.stock <= 0;
+        const isDelisted = book.status === 'DELISTED';
+        const isMajorDisabled = window.disabledMajors?.includes(book.major) && !isDelisted && !isSoldOut;
         const coverImg = book.coverImage || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='150' viewBox='0 0 120 150'%3E%3Crect width='120' height='150' fill='%23d0e2f2'/%3E%3Ctext x='60' y='70' text-anchor='middle' fill='%231e6d8f' font-size='14'%3E教材%3C/text%3E%3C/svg%3E";
-        html += `<div class="book-card-full${isSoldOut ? ' sold-out' : ''}" data-id="${book.id}">
-            ${isSoldOut ? '<div class="sold-out-overlay">已售罄</div>' : ''}
+        html += `<div class="book-card-full${isSoldOut || isDelisted || isMajorDisabled ? ' sold-out' : ''}" data-id="${book.id}" data-major-disabled="${isMajorDisabled ? 'true' : 'false'}">
+            ${isDelisted ? '<div class="sold-out-overlay">已下架</div>' : (isSoldOut ? '<div class="sold-out-overlay">已售罄</div>' : (isMajorDisabled ? '<div class="sold-out-overlay">该专业已停止兑换</div>' : ''))}
             <div class="book-cover-full"><img src="${book.coverImage}" alt="${escapeHtml(book.name)}" class="book-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'150\' viewBox=\'0 0 120 150\'%3E%3Crect width=\'120\' height=\'150\' fill=\'%23d0e2f2\'/%3E%3Ctext x=\'60\' y=\'70\' text-anchor=\'middle\' fill=\'%231e6d8f\' font-size=\'14\'%3E教材%3C/text%3E%3C/svg%3E'"></div>
             <div class="book-info-full">
                 <h3>${escapeHtml(book.name)}</h3>
                 <p>${escapeHtml(book.author || '')}</p>
                 <div class="book-major">📚 ${escapeHtml(book.major || '通用')}</div>
                 <div class="points-badge-full">${book.points} 积分</div>
-                <div class="stock-full${isSoldOut ? ' stock-out' : ''}">${isSoldOut ? '已售罄' : '库存 ' + book.stock + ' 本'}</div>
+                <div class="stock-full${isSoldOut || isDelisted || isMajorDisabled ? ' stock-out' : ''}">${isDelisted ? '已下架' : (isSoldOut ? '已售罄' : (isMajorDisabled ? '专业已停用' : '库存 ' + book.stock + ' 本'))}</div>
             </div>
         </div>`;
     });
@@ -85,8 +88,10 @@ function bindBookCards() {
             if (card.classList.contains('sold-out')) return;
             const bookId = parseInt(card.getAttribute('data-id'));
             const book = window.currentBooks?.find(b => b.id === bookId);
-            if (book) updateBookModal(book);
-            Modal.open('bookModal');
+            if (book) {
+                updateBookModal(book);
+                Modal.open('bookModal');
+            }
         });
     });
 }
@@ -110,37 +115,125 @@ function updateBookModal(book) {
 
     // 存储当前书籍数据到按钮上，避免重复克隆
     const exchangeBtn = document.getElementById('exchangeBookBtn');
+    const isBookDelisted = book.status === 'DELISTED';
+    const isBookSoldOut = book.stock <= 0;
+    const isMajorDisabled = window.disabledMajors?.includes(book.major);
     exchangeBtn.setAttribute('data-book-id', book.id);
     exchangeBtn.setAttribute('data-book-stock', book.stock);
     exchangeBtn.setAttribute('data-book-points', book.points);
     exchangeBtn.setAttribute('data-book-name', book.name);
     
-    // 根据库存设置按钮状态
-    if (book.stock <= 0) {
+    // 根据上下架、库存、专业状态设置按钮状态
+    if (isBookDelisted) {
+        exchangeBtn.disabled = true;
+        exchangeBtn.innerText = '已下架';
+    } else if (isBookSoldOut) {
         exchangeBtn.disabled = true;
         exchangeBtn.innerText = '已售罄';
+    } else if (isMajorDisabled) {
+        exchangeBtn.disabled = true;
+        exchangeBtn.innerText = '该专业已停止兑换';
     } else {
         exchangeBtn.disabled = false;
         exchangeBtn.innerText = '立即兑换';
     }
-    
-    // 重置数量选择器
-    const quantitySelect = document.getElementById('exchangeQuantity');
-    if (quantitySelect) {
-        quantitySelect.innerHTML = '';
-        const maxQty = Math.min(book.stock, 5);
-        for (let i = 1; i <= maxQty; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = i + ' 本';
-            quantitySelect.appendChild(opt);
+
+    // 数量输入框
+    const quantityInput = document.getElementById('exchangeQuantity');
+    if (quantityInput) {
+        quantityInput.type = 'number';
+        quantityInput.min = 1;
+        quantityInput.max = Math.min(book.stock, 5);
+        quantityInput.value = 1;
+        quantityInput.disabled = isBookDelisted || isBookSoldOut || isMajorDisabled;
+    }
+
+    // 兑换按钮点击事件（用标记位避免重复绑定）
+    if (exchangeBtn.hasAttribute('data-exchange-bound')) {
+        return;
+    }
+    exchangeBtn.setAttribute('data-exchange-bound', 'true');
+    exchangeBtn.addEventListener('click', () => {
+        if (isExchanging) return;
+        isExchanging = true;
+        const bookId = parseInt(exchangeBtn.getAttribute('data-book-id'));
+        const stock = parseInt(exchangeBtn.getAttribute('data-book-stock'));
+        const qtyInput = document.getElementById('exchangeQuantity');
+        const quantity = parseInt(qtyInput?.value) || 1;
+        const currentUser = getCurrentUser();
+        if (!currentUser || !currentUser.id) {
+            alert('请先登录');
+            isExchanging = false;
+            return;
         }
-        if (maxQty === 0) {
-            const opt = document.createElement('option');
-            opt.value = 0;
-            opt.textContent = '无库存';
-            quantitySelect.appendChild(opt);
+        if (quantity < 1 || quantity > stock) {
+            alert('兑换数量超出库存范围');
+            isExchanging = false;
+            return;
         }
+        studentApiCall('/books/exchange', 'POST', { bookId, quantity })
+            .then(r => {
+                isExchanging = false;
+                if (r.success) {
+                    alert('兑换成功！');
+                    Modal.close('bookModal');
+                    loadBooks();
+                } else {
+                    alert('兑换失败：' + (r.message || '库存不足或积分不够'));
+                }
+            })
+            .catch(() => {
+                isExchanging = false;
+                alert('兑换失败，请重试');
+            });
+    });
+}
+
+// ==================== 专业下拉动态加载 ====================
+async function loadMajors() {
+    try {
+        // 联动：检查分类是否在其他页面被更新过，若是则重新加载
+        const lastUpdated = sessionStorage.getItem('categories_updated');
+        const cached = sessionStorage.getItem('student_majors_cache');
+        const majors = (!lastUpdated && cached)
+            ? JSON.parse(cached)
+            : (await studentApiCall('/majors', 'GET')).data || [];
+        if (lastUpdated) sessionStorage.removeItem('categories_updated');
+        sessionStorage.setItem('student_majors_cache', JSON.stringify(majors));
+        const majorSelect = document.getElementById('majorFilter');
+        if (!majorSelect) return;
+        const currentValue = majorSelect.value;
+        majorSelect.innerHTML = '<option value="all">全部专业</option>';
+        majors.forEach(major => {
+            const opt = document.createElement('option');
+            opt.value = major;
+            opt.textContent = major;
+            majorSelect.appendChild(opt);
+        });
+        if (currentValue && currentValue !== 'all') {
+            majorSelect.value = currentValue;
+        }
+    } catch (e) {
+        console.error('加载专业列表失败:', e);
+    }
+}
+
+// ==================== 专业状态加载（禁用专业标记） ====================
+async function loadMajorsStatus() {
+    try {
+        const lastUpdated = sessionStorage.getItem('categories_updated');
+        const cached = sessionStorage.getItem('student_majors_status_cache');
+        const data = (!lastUpdated && cached)
+            ? JSON.parse(cached)
+            : (await studentApiCall('/majors-status', 'GET')).data || [];
+        if (lastUpdated) sessionStorage.removeItem('categories_updated');
+        sessionStorage.setItem('student_majors_status_cache', JSON.stringify(data));
+        window.disabledMajors = data
+            .filter(m => m.status === 'INACTIVE')
+            .map(m => m.name);
+    } catch (e) {
+        console.error('加载专业状态失败:', e);
+        window.disabledMajors = [];
     }
 }
 
@@ -148,7 +241,6 @@ function updateBookModal(book) {
 function initFilterButtons() {
     const filterBtn = document.getElementById('filterBtn');
     const searchInput = document.getElementById('searchInput');
-    const majorSelect = document.getElementById('majorFilter');
     const sortSelect = document.getElementById('sortFilter');
     
     const applyFilters = () => {
@@ -159,6 +251,8 @@ function initFilterButtons() {
     if (searchInput) searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') applyFilters(); });
     if (sortSelect) sortSelect.addEventListener('change', applyFilters);
     
+    loadMajorsStatus();
+    loadMajors();
     loadBooks();
 }
 
@@ -290,9 +384,10 @@ function bindHomeRecycleFormSubmit() {
 
             let coverImgSrc = '';
             const coverPreview = document.querySelector('#coverPreview img');
-            if (coverPreview && coverPreview.src && !coverPreview.src.includes('封面图')) {
+            if (coverPreview && coverPreview.src && !coverPreview.src.includes('封面图') && !coverPreview.src.includes('e1eff8')) {
                 coverImgSrc = coverPreview.src;
             }
+            if (!coverImgSrc) { alert('请上传教材封面图'); return; }
 
             const bookData = {
                 bookName, isbn, publisher, condition,
@@ -420,13 +515,19 @@ async function initPointsPage() {
                     document.getElementById('noDataMessage').style.display = 'none';
                     let html = '';
                     filtered.forEach(item => {
+                        const typeMap = {
+                            'RECYCLE': '回收得积分',
+                            'EXCHANGE': '兑换消费',
+                            'EVALUATE': '评估得积分',
+                            'SYNC': '积分同步'
+                        };
                         const pointsClass = item.points > 0 ? 'points-income' : 'points-expense';
                         const categoryClass = item.category === 'BOOK' ? 'category-badge book' : 'category-badge prize';
                         const categoryIcon = item.category === 'BOOK' ? '📚' : '🎁';
                         const categoryName = item.category === 'BOOK' ? '教材' : '奖品';
                         html += `<tr>
                             <td>${formatDate(item.createTime)}</td>
-                            <td>${item.type}</td>
+                            <td>${typeMap[item.type] || item.type || '-'}</td>
                             <td class="${pointsClass}">${item.points > 0 ? '+' : ''}${item.points}</td>
                             <td>${item.balance}</td>
                             <td>${escapeHtml(item.description || '')}</td>
@@ -495,6 +596,10 @@ async function initExchangePage() {
             </div>`;
         }).join('');
         
+        // 缓存奖品数据供弹窗使用
+        window.allPrizes = prizes;
+        window.currentStudentPoints = currentPoints;
+
         // Bind exchange buttons
         container.querySelectorAll('.exchange-btn').forEach(btn => {
             if (btn.hasAttribute('data-bound')) return;
@@ -503,27 +608,79 @@ async function initExchangePage() {
                 e.preventDefault();
                 e.stopPropagation();
                 const prizeId = parseInt(btn.getAttribute('data-prize-id'));
-                const prizeName = btn.closest('.prize-card')?.querySelector('h4')?.innerText || '奖品';
-                const points = parseInt(btn.getAttribute('data-points')) || 0;
-
-                if (points > currentPoints) {
-                    alert(`积分不足！您当前只有 ${currentPoints} 积分，需要 ${points} 积分。`);
-                    return;
-                }
-
-                if (confirm(`确定要兑换 ${prizeName} 吗？需要 ${points} 积分。`)) {
-                    try {
-                        await studentApiCall('/prizes/exchange', 'POST', { prizeId: prizeId, quantity: 1 });
-                        alert(`兑换成功！${prizeName}已兑换，请前往后勤中心领取。`);
-                        initExchangePage();
-                    } catch (error) {
-                        alert(error.message);
-                    }
-                }
+                const prize = (window.allPrizes || []).find(p => p.id === prizeId);
+                if (!prize) return;
+                openPrizeExchangeModal(prize, window.currentStudentPoints);
             });
         });
+
+        // 兑换弹窗数量变化时更新总计
+        const qtyInput = document.getElementById('prizeExchangeQuantity');
+        if (qtyInput) {
+            qtyInput.addEventListener('input', updatePrizeExchangeTotal);
+        }
     } catch (error) {
         console.error('加载奖品失败:', error);
+    }
+}
+
+function openPrizeExchangeModal(prize, currentPoints) {
+    const defaultIcons = ['🍰', '📓', '👜', '✏️', '☕', '🎁', '📦', '🎯'];
+    const prizeIndex = (window.allPrizes || []).indexOf(prize);
+    const icon = defaultIcons[prizeIndex % defaultIcons.length];
+    const imgSrc = prize.imageData || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23e1eff8' rx='12'/%3E%3Ctext x='40' y='50' text-anchor='middle' fill='%231e6d8f' font-size='36'%3E${encodeURIComponent(icon)}%3C/text%3E%3C/svg%3E`;
+
+    document.getElementById('prizeExchangeImg').innerHTML = `<img src="${imgSrc}" alt="${escapeHtml(prize.name)}">`;
+    document.getElementById('prizeExchangeName').innerText = prize.name;
+    document.getElementById('prizeExchangePoints').innerText = prize.points + ' 积分/个';
+    document.getElementById('prizeExchangeStock').innerText = '库存 ' + prize.stock + ' 个';
+
+    const maxQty = Math.min(prize.stock, Math.floor(currentPoints / prize.points), 10);
+    const qtyInput = document.getElementById('prizeExchangeQuantity');
+    qtyInput.value = 1;
+    qtyInput.min = 1;
+    qtyInput.max = maxQty > 0 ? maxQty : 1;
+
+    const confirmBtn = document.getElementById('prizeExchangeConfirmBtn');
+    const newBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+    newBtn.onclick = async () => {
+        const qty = parseInt(qtyInput.value) || 1;
+        if (qty < 1 || qty > prize.stock) {
+            alert('兑换数量超出库存范围');
+            return;
+        }
+        const totalCost = prize.points * qty;
+        if (totalCost > currentPoints) {
+            alert('积分不足，当前积分 ' + currentPoints + '，需要 ' + totalCost);
+            return;
+        }
+        if (!confirm('确认兑换 ' + prize.name + ' x' + qty + ' 个，共 ' + totalCost + ' 积分？')) return;
+        try {
+            await studentApiCall('/prizes/exchange', 'POST', { prizeId: prize.id, quantity: qty });
+            alert('兑换成功！' + prize.name + '已兑换，请前往后勤中心领取。');
+            Modal.close('prizeExchangeModal');
+            initExchangePage();
+        } catch (error) {
+            alert(error.message || '兑换失败');
+        }
+    };
+
+    updatePrizeExchangeTotal();
+    Modal.open('prizeExchangeModal');
+}
+
+function updatePrizeExchangeTotal() {
+    const qtyInput = document.getElementById('prizeExchangeQuantity');
+    const prizeName = document.getElementById('prizeExchangeName')?.innerText || '';
+    const totalEl = document.getElementById('prizeExchangeTotal');
+    if (!qtyInput || !totalEl) return;
+    const qty = parseInt(qtyInput.value) || 0;
+    const prize = (window.allPrizes || []).find(p => p.name === prizeName);
+    if (prize && qty > 0) {
+        totalEl.innerText = '合计：' + (prize.points * qty) + ' 积分';
+    } else {
+        totalEl.innerText = '';
     }
 }
 
@@ -537,25 +694,28 @@ async function initNoticePage() {
     if (!document.querySelector('.notice-main-full')) return;
 
     try {
-        const [annResult, noticeResult, adminLocationResult, logisticsLocationResult] = await Promise.all([
+        const [annResult, noticeResult, adminLocationResult, logisticsLocationResult, locationReadResult] = await Promise.all([
             studentApiCall('/announcements', 'GET'),
             studentApiCall('/notices', 'GET'),
             studentApiCall('/location-notice/admin', 'GET'),
-            studentApiCall('/location-notice/logistics', 'GET')
+            studentApiCall('/location-notice/logistics', 'GET'),
+            studentApiCall('/location-notice/read-ids', 'GET')
         ]);
 
-        const announcements = annResult.data || [];
+        const announcements = annResult.data?.announcements || [];
+        const readAnnouncementIds = annResult.data?.readIds || [];
         const notices = noticeResult.data || [];
         const adminLocation = adminLocationResult.data;
         const logisticsLocation = logisticsLocationResult.data;
+        const readLocationNoticeIds = locationReadResult.data || [];
 
-        // 分别构建系统公告列表和领取须知列表
+        // 构建领取须知列表（附带真实 ID 用于已读状态）
         const allNotices = [];
         
-        // 管理员领取须知
         if (adminLocation && adminLocation.id) {
             allNotices.push({
                 id: 'admin-location',
+                realId: adminLocation.id,     // 真实的 location_notice 表 ID
                 title: '【管理员】领取须知',
                 location: adminLocation.location || '-',
                 notice: adminLocation.notice || '-',
@@ -566,10 +726,10 @@ async function initNoticePage() {
             });
         }
         
-        // 后勤领取须知
         if (logisticsLocation && logisticsLocation.id) {
             allNotices.push({
                 id: 'logistics-location',
+                realId: logisticsLocation.id,  // 真实的 location_notice 表 ID
                 title: '【后勤】领取须知',
                 location: logisticsLocation.location || '-',
                 notice: logisticsLocation.notice || '-',
@@ -603,8 +763,9 @@ async function initNoticePage() {
             }
             let html = '';
             announcements.forEach((item) => {
-                html += `<div class="list-item" data-type="announcement" data-id="${item.id}">
-                    <span class="list-title">${escapeHtml(item.title || '')}</span>
+                const isRead = readAnnouncementIds.includes(item.id);
+                html += `<div class="list-item ${isRead ? '' : 'unread'}" data-type="announcement" data-id="${item.id}">
+                    <span class="list-title">${!isRead ? '<span class="unread-dot"></span>' : ''}${escapeHtml(item.title || '')}</span>
                     <span class="list-date">${formatDate(item.publishTime)}</span>
                 </div>`;
             });
@@ -614,10 +775,14 @@ async function initNoticePage() {
                 item.addEventListener('click', () => {
                     document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
+                    // 标记为已读（移除未读样式）
+                    item.classList.remove('unread');
+                    const dot = item.querySelector('.unread-dot');
+                    if (dot) dot.remove();
                     const id = parseInt(item.getAttribute('data-id'));
                     const d = announcements.find(a => a.id === id);
+                    const type = item.getAttribute('data-type');
                     if (d) {
-                        // 保留"公告详情"标题，显示系统公告的详细内容
                         document.getElementById('detailTitle').innerText = '公告详情';
                         document.getElementById('detailDate').innerText = formatDate(d.publishTime);
                         document.getElementById('detailContent').innerHTML = `
@@ -625,6 +790,10 @@ async function initNoticePage() {
                             <div class="detail-meta">发布人：${escapeHtml(d.publisher || '-')} &nbsp;&nbsp;发布时间：${formatDate(d.publishTime)}</div>
                             <div class="detail-body">${(d.content || '').replace(/\n/g, '<br>')}</div>
                         `;
+                        // 调用标记已读接口
+                        if (type === 'announcement') {
+                            studentApiCall(`/announcements/${id}/read`, 'POST');
+                        }
                     }
                 });
             });
@@ -639,8 +808,9 @@ async function initNoticePage() {
             }
             let html = '';
             allNotices.forEach((item) => {
-                html += `<div class="list-item" data-type="notice" data-id="${item.id}">
-                    <span class="list-title">${escapeHtml(item.title || '')}</span>
+                const isRead = readLocationNoticeIds.includes(item.realId);
+                html += `<div class="list-item ${isRead ? '' : 'unread'}" data-type="location-notice" data-id="${item.id}" data-notice-id="${item.realId}">
+                    <span class="list-title">${!isRead ? '<span class="unread-dot"></span>' : ''}${escapeHtml(item.title || '')}</span>
                     <span class="list-date">${formatDate(item.publishTime)}</span>
                 </div>`;
             });
@@ -650,10 +820,11 @@ async function initNoticePage() {
                 item.addEventListener('click', () => {
                     document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-                    const id = item.getAttribute('data-id');
-                    const d = allNotices.find(n => n.id === id);
+                    item.classList.remove('unread');
+                    const dot = item.querySelector('.unread-dot');
+                    if (dot) dot.remove();
+                    const d = allNotices.find(n => n.id === item.getAttribute('data-id'));
                     if (d) {
-                        // 保留"公告详情"标题，显示领取须知的详细内容
                         document.getElementById('detailTitle').innerText = '公告详情';
                         document.getElementById('detailDate').innerText = formatDate(d.publishTime);
                         document.getElementById('detailContent').innerHTML = `
@@ -664,6 +835,8 @@ async function initNoticePage() {
                                 <p><strong>注意事项：</strong>${(d.notice || '-').replace(/\n/g, '<br>')}</p>
                             </div>
                         `;
+                        const noticeId = item.getAttribute('data-notice-id');
+                        if (noticeId) studentApiCall(`/location-notice/${noticeId}/read`, 'POST');
                     }
                 });
             });
@@ -686,7 +859,7 @@ async function initNoticePage() {
                 studentApiCall('/appointments', 'GET')
             ]);
 
-            // 卡片1：即将缺货
+            // 卡片1：即将缺货（仅展示库存 ≤3 的书籍）
             const lowStockBooks = (booksResult.data || []).filter(b => b.stock <= 3);
             const lowStockList = document.getElementById('lowStockList');
             if (lowStockList) {
@@ -697,22 +870,6 @@ async function initNoticePage() {
                         `<div class="warning-item">
                             <span class="warning-book">${escapeHtml(b.name)}</span>
                             <span class="stock-status ${b.stock === 0 ? 'out' : 'low'}">${b.stock === 0 ? '已缺货' : `仅剩${b.stock}本`}</span>
-                        </div>`
-                    ).join('');
-                }
-            }
-
-            // 卡片2：待审核预约
-            const pendingAppointments = (appointmentsResult.data || []).filter(a => a.status === 'PENDING');
-            const pendingList = document.getElementById('pendingAppointmentsList');
-            if (pendingList) {
-                if (pendingAppointments.length === 0) {
-                    pendingList.innerHTML = '<div class="warning-item"><span class="warning-book">暂无待审核预约</span></div>';
-                } else {
-                    pendingList.innerHTML = pendingAppointments.slice(0, 5).map(a =>
-                        `<div class="warning-item">
-                            <span class="warning-book">${escapeHtml(a.bookName || '')}</span>
-                            <span class="pending-tag">待审核</span>
                         </div>`
                     ).join('');
                 }
@@ -867,8 +1024,14 @@ function changePassword() {
         return;
     }
     
-    alert('密码修改功能开发中');
-    Modal.close('pwdModal');
+    studentApiCall('/password', 'PUT', { oldPassword: oldPwd, newPassword: newPwd })
+        .then(result => {
+            alert('密码修改成功');
+            Modal.close('pwdModal');
+        })
+        .catch(error => {
+            alert(error.message || '密码修改失败');
+        });
 }
 
 // ==================== 回收记录页面功能 ====================
@@ -878,12 +1041,13 @@ async function initRecycleRecordsPage() {
     try {
         const [appointResult, exchangesResult, pointsResult] = await Promise.all([
             studentApiCall('/appointments', 'GET'),
-            studentApiCall('/prizes', 'GET').then(r => ({ data: [] })),
+            studentApiCall('/exchanges', 'GET'),
             studentApiCall('/points', 'GET')
         ]);
 
         const appointments = appointResult.data || [];
-        const exchanges = pointsResult.data?.exchanges || [];
+        const bookExchanges = exchangesResult.data?.bookExchanges || [];
+        const prizeExchanges = exchangesResult.data?.prizeExchanges || [];
 
         // Render appointment table
         const appointmentTbody = document.getElementById('appointmentTbody');
@@ -913,13 +1077,10 @@ async function initRecycleRecordsPage() {
             }
         }
 
-        // Render exchange table
-        const recycles = pointsResult.data?.recycles || [];
-
-        // 合并奖品兑换和教材兑换
+        // 合并奖品兑换和教材兑换（只显示后勤/管理员已确认的记录）
         const allExchanges = [
-            ...exchanges.map(ex => ({ ...ex, _type: 'prize' })),
-            ...recycles.map(r => ({ ...r, _type: 'book' }))
+            ...prizeExchanges.map(ex => ({ ...ex, _type: 'prize' })),
+            ...bookExchanges.map(ex => ({ ...ex, _type: 'book' }))
         ].sort((a, b) => {
             const timeA = a.exchangeTime || a.evaluateTime || '';
             const timeB = b.exchangeTime || b.evaluateTime || '';
@@ -1008,7 +1169,8 @@ function updateAppointmentStats() {
 function updateExchangeStats() {
     const tbody = document.getElementById('exchangeTbody');
     if (!tbody) return;
-    const rows = tbody.querySelectorAll('tr');
+    // 只统计有 data-status 属性的真实数据行，排除无数据提示行
+    const rows = Array.from(tbody.querySelectorAll('tr[data-status]'));
     let pending = 0, completed = 0;
     rows.forEach(row => {
         const status = row.getAttribute('data-status');

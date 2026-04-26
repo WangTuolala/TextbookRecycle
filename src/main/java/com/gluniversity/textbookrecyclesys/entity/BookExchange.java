@@ -33,4 +33,7 @@ public class BookExchange {
     private LocalDateTime exchangeTime = LocalDateTime.now();
 
     private String status = "PENDING"; // PENDING, COMPLETED
+
+    @Column(columnDefinition = "TEXT")
+    private String coverImage; // 教材封面图
 }
