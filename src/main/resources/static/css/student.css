@@ -1531,10 +1531,12 @@
 /* ===== 库存预警区域（与管理员一致） ===== */
 .warning-section {
     background: white;
-    border-radius: 20px;
-    padding: 20px;
+    border-radius: 28px;
+    padding: 24px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    border: 1px solid #e1eff8;
+    border: 2px solid #e1eff8;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .warning-title {
@@ -1548,15 +1550,17 @@
 
 .warning-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    grid-template-columns: 1fr;
 }
 
 .warning-card {
     background: #f8f9fa;
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid #e1eff8;
+    border-radius: 20px;
+    padding: 20px;
+    border: 2px solid transparent;
+    transition: transform 0.2s;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .warning-card.warning-zero {
@@ -1570,6 +1574,7 @@
 .warning-header {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     margin-bottom: 12px;
 }
@@ -1587,15 +1592,17 @@
 .warning-content {
     display: flex;
     flex-direction: column;
+    text-align: center;
     gap: 8px;
 }
 
 .warning-item {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 6px 0;
     border-bottom: 1px dashed #e1eff8;
+    text-align: center;
 }
 
 .warning-item:last-child {
@@ -1691,10 +1698,11 @@
 /* ===== ���Ԥ������ ===== */
 .warning-item {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 10px 8px;
     border-bottom: 1px solid #f0f4f8;
+    text-align: center;
 }
 
 .warning-item:last-child {
@@ -1703,7 +1711,6 @@
 
 .warning-book {
     flex: 1;
-    max-width: 70%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

@@ -1020,7 +1020,8 @@ async function saveBook() {
     const major = document.getElementById('bookMajor').value;
     const condition = document.getElementById('bookCondition').value;
     const points = parseInt(document.getElementById('bookPoints').value) || 0;
-    const stock = parseInt(document.getElementById('bookStock').value) || 0;
+    const stockRaw = document.getElementById('bookStock').value;
+    const stock = stockRaw === '' ? 0 : (parseInt(stockRaw) || 0);
     const status = document.getElementById('bookStatus').value;
     const coverFile = document.getElementById('bookCoverFile').files[0];
 
@@ -1031,6 +1032,7 @@ async function saveBook() {
     if (!major) { alert('请选择专业'); return; }
     if (!condition) { alert('请选择品相'); return; }
     if (!id && !coverFile) { alert('请上传教材封面图'); return; }
+    if (stock <= 0) { alert('库存数量必须大于0'); return; }
 
     formData.append('name', name);
     formData.append('author', author);
@@ -1130,7 +1132,7 @@ window.updateBookStatus = async function(id, status) {
 
 window.openBookModal = function(bookId) {
     const isEdit = bookId && bookId !== 'undefined' && bookId !== '';
-    document.getElementById('bookModalTitle').innerText = isEdit ? '&#128214; 编辑书籍' : '&#128218; 新增书籍';
+    document.getElementById('bookModalTitle').innerHTML = isEdit ? '📚 编辑书籍' : '📖 新增书籍';
     document.getElementById('bookForm').reset();
     document.getElementById('coverPreview').innerHTML = '';
 
@@ -1166,7 +1168,7 @@ window.openBookModal = function(bookId) {
 };
 
 window.openBookModalWithPrefill = function(prefill) {
-    document.getElementById('bookModalTitle').innerText = '&#128218; 新增书籍（来自评估）';
+    document.getElementById('bookModalTitle').innerHTML = '📖 新增书籍（来自评估）';
     document.getElementById('bookForm').reset();
     document.getElementById('coverPreview').innerHTML = '';
 
@@ -1836,9 +1838,14 @@ function getCurrentUser() {
 
 // ==================== 公共初始化 ====================
 async function initNavUserInfo() {
-    if (!document.querySelector('.admin-main') && !document.querySelector('.admin-notice-main') &&
+    if (!document.querySelector('.audit-page') &&
+        !document.querySelector('.admin-main') && !document.querySelector('.admin-notice-main') &&
         !document.querySelector('.book-mgmt-main') && !document.querySelector('.rule-page') &&
-        !document.querySelector('.admin-profile-main') && !document.querySelector('.evaluate-page')) return;
+        !document.querySelector('.admin-profile-main') && !document.querySelector('.evaluate-page') &&
+        !document.querySelector('.category-mgmt-main') &&
+        !document.querySelector('.inventory-page') && !document.querySelector('.inventory-check-page') &&
+        !document.querySelector('.inventory-in-page') && !document.querySelector('.inventory-out-page') &&
+        !document.querySelector('.redirect-page')) return;
     try {
         const result = await adminApiCall('/profile', 'GET');
         const user = result.data;

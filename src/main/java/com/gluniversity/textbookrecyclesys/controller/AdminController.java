@@ -142,6 +142,14 @@ public class AdminController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "coverImageFile", required = false) MultipartFile coverImageFile) {
         try {
+            if (name == null || name.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写书籍名称"));
+            if (author == null || author.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写作者"));
+            if (publisher == null || publisher.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写出版社"));
+            if (isbn == null || isbn.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写ISBN"));
+            if (major == null || major.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请选择专业"));
+            if (condition == null || condition.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请选择品相"));
+            if (stock == null || stock <= 0) return ResponseEntity.badRequest().body(ApiResponse.error("库存数量必须大于0"));
+            if (coverImageFile == null || coverImageFile.isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请上传教材封面图"));
             Book book = new Book();
             book.setName(name);
             book.setAuthor(author);
@@ -174,6 +182,13 @@ public class AdminController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "coverImageFile", required = false) MultipartFile coverImageFile) {
         try {
+            if (stock != null && stock <= 0) return ResponseEntity.badRequest().body(ApiResponse.error("库存数量必须大于0"));
+            if (name == null || name.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写书籍名称"));
+            if (author == null || author.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写作者"));
+            if (publisher == null || publisher.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写出版社"));
+            if (isbn == null || isbn.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请填写ISBN"));
+            if (major == null || major.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请选择专业"));
+            if (condition == null || condition.trim().isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("请选择品相"));
             Book book = new Book();
             book.setName(name);
             book.setAuthor(author);

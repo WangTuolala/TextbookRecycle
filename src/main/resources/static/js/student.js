@@ -192,19 +192,25 @@ function updateBookModal(book) {
 // ==================== 专业下拉动态加载 ====================
 async function loadMajors() {
     try {
-        // 联动：检查分类是否在其他页面被更新过，若是则重新加载
-        const lastUpdated = sessionStorage.getItem('categories_updated');
-        const cached = sessionStorage.getItem('student_majors_cache');
-        const majors = (!lastUpdated && cached)
-            ? JSON.parse(cached)
-            : (await studentApiCall('/majors', 'GET')).data || [];
-        if (lastUpdated) sessionStorage.removeItem('categories_updated');
-        sessionStorage.setItem('student_majors_cache', JSON.stringify(majors));
+        // 管理员修改专业状态后，sessionStorage 会设置 categories_updated 标记
+        // 每次都从 API 获取最新数据，保证下拉框与管理员设置同步
+        const statusData = (await studentApiCall('/majors-status', 'GET')).data || [];
+        sessionStorage.removeItem('categories_updated');
+        sessionStorage.setItem('student_majors_status_cache', JSON.stringify(statusData));
+        // 同步更新 window.disabledMajors（供书籍卡片判断专业是否被禁用）
+        window.disabledMajors = statusData
+            .filter(m => m.status === 'INACTIVE')
+            .map(m => m.name);
+        // 只取 ACTIVE 的专业填下拉框
+        const activeMajors = statusData
+            .filter(m => m.status === 'ACTIVE')
+            .map(m => m.name)
+            .sort();
         const majorSelect = document.getElementById('majorFilter');
         if (!majorSelect) return;
         const currentValue = majorSelect.value;
         majorSelect.innerHTML = '<option value="all">全部专业</option>';
-        majors.forEach(major => {
+        activeMajors.forEach(major => {
             const opt = document.createElement('option');
             opt.value = major;
             opt.textContent = major;
@@ -860,7 +866,7 @@ async function initNoticePage() {
             ]);
 
             // 卡片1：即将缺货（仅展示库存 ≤3 的书籍）
-            const lowStockBooks = (booksResult.data || []).filter(b => b.stock <= 3);
+            const lowStockBooks = (booksResult.data || []).filter(b => b.stock <= 10);
             const lowStockList = document.getElementById('lowStockList');
             if (lowStockList) {
                 if (lowStockBooks.length === 0) {

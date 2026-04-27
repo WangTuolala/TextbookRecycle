@@ -17,7 +17,7 @@ public class InventoryService {
 
     public List<Book> getLowStockBooks() {
         return bookRepository.findByStatus("LISTED").stream()
-                .filter(b -> b.getStock() <= 5)
+                .filter(b -> b.getStock() <= 10)
                 .toList();
     }
 
