@@ -23,6 +23,8 @@ public class RecycleAppointment {
     @Column(nullable = false)
     private String bookName;
     
+    private String author;
+    
     private String isbn;
     private String publisher;
     @Column(name = "`condition`")

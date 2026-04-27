@@ -330,6 +330,7 @@ async function addHomeRecycleRecord(bookData) {
     try {
         const result = await studentApiCall('/appointments', 'POST', {
             bookName: bookData.bookName,
+            author: bookData.author,
             isbn: bookData.isbn,
             publisher: bookData.publisher,
             condition: bookData.condition,
@@ -378,12 +379,14 @@ function bindHomeRecycleFormSubmit() {
         recycleForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const bookName = document.getElementById('bookName')?.value.trim();
+            const author = document.getElementById('author')?.value.trim();
             const isbn = document.getElementById('isbn')?.value.trim();
             const publisher = document.getElementById('publisher')?.value.trim();
             const condition = document.getElementById('condition')?.value;
             const quantity = document.getElementById('quantity')?.value || '1';
             
             if (!bookName) { alert('请填写教材名称'); return; }
+            if (!author) { alert('请填写作者'); return; }
             if (!isbn) { alert('请填写ISBN'); return; }
             if (!publisher) { alert('请填写出版社'); return; }
             if (!condition) { alert('请选择品相预估'); return; }
@@ -396,7 +399,7 @@ function bindHomeRecycleFormSubmit() {
             if (!coverImgSrc) { alert('请上传教材封面图'); return; }
 
             const bookData = {
-                bookName, isbn, publisher, condition,
+                bookName, author, isbn, publisher, condition,
                 quantity: parseInt(quantity),
                 remark: document.getElementById('remark')?.value || '',
                 coverImage: coverImgSrc

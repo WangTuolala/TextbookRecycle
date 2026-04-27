@@ -101,6 +101,7 @@ public class StudentController {
         try {
             RecycleAppointment appointment = new RecycleAppointment();
             appointment.setBookName(request.getBookName());
+            appointment.setAuthor(request.getAuthor());
             appointment.setIsbn(request.getIsbn());
             appointment.setPublisher(request.getPublisher());
             appointment.setCondition(request.getCondition());

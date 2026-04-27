@@ -5,6 +5,7 @@ import lombok.Data;
 @Data
 public class AppointmentRequest {
     private String bookName;
+    private String author;
     private String isbn;
     private String publisher;
     private String condition;
