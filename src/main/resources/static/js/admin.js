@@ -389,11 +389,11 @@ async function loadPointsRule() {
 }
 
 function getStatusLabel(status) {
-    const map = { 'PENDING': '待审核', 'APPROVED': '已通过', 'SYNCED': '已同步', 'LISTED': '已上架', 'DELISTED': '已下架', 'REJECTED': '已拒绝' };
+    const map = { 'PENDING': '待审核', 'APPROVED': '已通过', 'SYNCED': '已同步', 'REJECTED': '已拒绝' };
     return map[status] || status;
 }
 function getStatusClass(status) {
-    const map = { 'PENDING': 'pending', 'APPROVED': 'approved', 'SYNCED': 'approved', 'LISTED': 'listed', 'DELISTED': 'delisted', 'REJECTED': 'delisted' };
+    const map = { 'PENDING': 'pending', 'APPROVED': 'approved', 'SYNCED': 'approved', 'REJECTED': 'delisted' };
     return map[status] || '';
 }
 
@@ -408,12 +408,12 @@ function renderEvaluateTable() {
     const total = all.length;
     const pending = all.filter(e => e.status === 'PENDING').length;
     const approved = all.filter(e => e.status !== 'PENDING').length;
-    const completed = all.filter(e => e.status === 'LISTED').length;
+    const synced = all.filter(e => e.status === 'SYNCED').length;
     const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
     setEl('evalTotal', total);
     setEl('evalPending', pending);
     setEl('evalApproved', approved);
-    setEl('evalCompleted', completed);
+    setEl('evalCompleted', synced);
 
     let filtered = all.slice();
     if (statusFilter !== 'all') filtered = filtered.filter(item => item.status === statusFilter);
@@ -451,14 +451,9 @@ function renderEvaluateTable() {
                          '<button class="btn-sm btn-reject" onclick="rejectEvaluate(\'' + item.id + '\',this)">拒绝</button>';
             }
         } else if (item.status === 'APPROVED') {
-            actions = '<button class="btn-sm btn-sync" onclick="openSyncModal(\'' + item.id + '\')">同步积分</button>' +
-                      '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
+            actions = '<button class="btn-sm btn-sync" onclick="openSyncModal(\'' + item.id + '\')">同步积分</button>';
         } else if (item.status === 'SYNCED') {
-            actions = '<button class="btn-sm btn-list" onclick="goToBookMgmt(\'' + item.id + '\')">上架</button>';
-        } else if (item.status === 'LISTED') {
-            actions = '<span style="color:#28a745;">已上架</span>';
-        } else if (item.status === 'DELISTED') {
-            actions = '<span style="color:#dc3545;">已下架</span>';
+            actions = '<span style="color:#28a745;">已同步</span>';
         } else if (item.status === 'REJECTED') {
             actions = '<span style="color:#dc3545;">已拒绝</span>';
         }
@@ -479,6 +474,17 @@ function renderEvaluateTable() {
             '<td><span class="status-badge ' + getStatusClass(item.status) + '">' + getStatusLabel(item.status) + '</span></td>' +
             '<td>' + actions + '</td></tr>';
     }).join('');
+
+    // 事件委托：后备路由（同时诊断 onclick 属性内容）
+    tbody.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-sync');
+        if (!btn) return;
+        const onclick = btn.getAttribute('onclick') || '';
+        const match = onclick.match(/openSyncModal\(['"]?([^'"]*)['"]?\)/);
+        const id = match ? match[1] : null;
+        console.log('[DEBUG-ED] btn-sync click captured, onclick="' + onclick + '", extracted id="' + id + '"');
+        if (id && window.openSyncModal) window.openSyncModal(id);
+    });
 }
 
 function onConditionChange(selectEl, id) {
@@ -525,7 +531,7 @@ window.approveAppointment = async function(appointmentId, btn) {
 };
 
 window.openSyncModal = function(id) {
-    const item = window.evaluateData.find(e => e.id === id);
+    const item = window.evaluateData.find(e => e.id == id);
     if (!item) return;
     window._syncEvalId = id;
     const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
@@ -546,20 +552,25 @@ window.updateSyncPoints = function() {
 };
 
 window.confirmSync = async function(id) {
+    console.log('[DEBUG] confirmSync called, id:', id);
     const cond = document.getElementById('syncCondition').value;
     const ruleMap = window.pointsRuleMap || { '全新': 200, '良好': 150, '一般': 80, '陈旧': 40 };
     const pts = ruleMap[cond] || 0;
     const btn = document.getElementById('confirmSyncBtn');
+    if (!btn) { console.error('[DEBUG] confirmSyncBtn not found'); return; }
+    console.log('[DEBUG] btn found, about to call API');
     btn.disabled = true;
     try {
+        console.log('[DEBUG] calling /condition PUT with', { adminCondition: cond, points: pts });
         await adminApiCall('/evaluations/' + id + '/condition', 'PUT', { adminCondition: cond, points: pts });
+        console.log('[DEBUG] /condition PUT success, calling /sync POST');
         await adminApiCall('/evaluations/' + id + '/sync', 'POST');
         alert('积分同步成功！');
         Modal.close('syncModal');
         await loadEvaluateData();
         renderEvaluateTable();
     } catch (error) {
-        alert(error.message);
+        alert('操作失败：' + (error.message || '请联系管理员'));
         btn.disabled = false;
     }
 };
