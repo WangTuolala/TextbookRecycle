@@ -115,8 +115,8 @@ public class LogisticsController {
             User updatedUser = new User();
             updatedUser.setName(request.get("name"));
             updatedUser.setPhone(request.get("phone"));
-            updatedUser.setCollege(request.get("dept"));
-            updatedUser.setMajor(request.get("workplace"));
+            updatedUser.setDept(request.get("dept"));
+            updatedUser.setWorkplace(request.get("workplace"));
             updatedUser.setYear(request.get("year"));
             User user = userService.updateProfile(userId, updatedUser);
             return ResponseEntity.ok(ApiResponse.success(user));
