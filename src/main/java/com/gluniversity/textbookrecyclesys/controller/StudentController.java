@@ -139,8 +139,8 @@ public class StudentController {
         List<BookExchange> bookExchanges = bookExchangeRepository.findByStudentIdOrderByExchangeTimeDesc(studentId);
         List<PrizeExchange> prizeExchanges = prizeService.getExchangesByStudent(studentId);
         return ResponseEntity.ok(ApiResponse.success(Map.of(
-                "bookExchanges", bookExchanges.stream().filter(e -> "COMPLETED".equals(e.getStatus())).toList(),
-                "prizeExchanges", prizeExchanges.stream().filter(e -> "COMPLETED".equals(e.getStatus())).toList()
+                "bookExchanges", bookExchanges,
+                "prizeExchanges", prizeExchanges
         )));
     }
 
