@@ -127,6 +127,21 @@
     </div>
 </main>
 
+<!-- 公告内容查看弹窗 -->
+<div id="noticeViewModal" class="modal">
+    <div class="modal-content modal-lg">
+        <span class="close-btn" onclick="Modal.close('noticeViewModal')">&times;</span>
+        <h3 id="noticeViewTitle">公告详情</h3>
+        <div id="noticeViewContent" style="white-space: pre-wrap; line-height: 1.8; color: #333; margin: 16px 0; max-height: 60vh; overflow-y: auto;"></div>
+        <div style="text-align: right; color: #888; font-size: 0.85rem; margin-bottom: 12px;">
+            <span id="noticeViewMeta"></span>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="Modal.close('noticeViewModal')">关闭</button>
+        </div>
+    </div>
+</div>
+
 <script src="/js/common.js"></script>
 <script src="/js/admin.js"></script>
 </body>

@@ -117,15 +117,18 @@ public class LogisticsController {
     @PostMapping("/announcements")
     public ResponseEntity<ApiResponse<Announcement>> publishAnnouncement(
             @RequestBody Map<String, String> request,
-            @RequestHeader(value = "X-Operator-Name", required = false) String operatorName) {
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         try {
-            String decodedOperator = (operatorName != null && !operatorName.isEmpty()) 
-                    ? URLDecoder.decode(operatorName, StandardCharsets.UTF_8.toString()) 
-                    : "后勤";
+            String operator = "后勤";
+            if (userId != null) {
+                operator = userService.findById(userId)
+                        .map(User::getName)
+                        .orElse("后勤");
+            }
             Announcement announcement = announcementService.publishAnnouncement(
                     request.get("title"),
                     request.get("content"),
-                    decodedOperator,
+                    operator,
                     "LOGISTICS"
             );
             return ResponseEntity.ok(ApiResponse.success("发布成功", announcement));

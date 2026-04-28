@@ -3,9 +3,8 @@
 async function logisticsApiCall(endpoint, method, body) {
     const currentUser = getCurrentUser();
     const headers = {};
-    if (currentUser && currentUser.name) {
-        // 对中文进行编码，避免 HTTP header 不支持非 ISO-8859-1 字符
-        headers['X-Operator-Name'] = encodeURIComponent(currentUser.name);
+    if (currentUser && currentUser.id) {
+        headers['X-User-Id'] = currentUser.id;
     }
     return apiCall(LOGISTICS_API + endpoint, method, body, headers);
 }
@@ -556,7 +555,7 @@ function renderAnnouncementHistory(searchTerm = '') {
     tbody.innerHTML = filtered.map((item) => `
         <tr>
             <td style="text-align: left;">${escapeHtml(item.title)}</td>
-            <td style="text-align: left;">${escapeHtml((item.content || '').substring(0, 100))}...</td>
+            <td style="text-align: center;"><button class="btn-sm" onclick="openNoticeViewModal(${item.id})">查看</button></td>
             <td style="text-align: center;">${formatDate(item.publishTime)}</td>
             <td style="text-align: center;">${item.publisher || '-'}</td>
             <td style="text-align: center;"><span class="status-active">已发布</span></td>
@@ -584,7 +583,7 @@ function renderLocationHistory(searchTerm = '') {
         const statusText = item.isActive ? '✅ 当前生效' : '📄 历史版本';
         return `<tr>
             <td style="text-align: left;">${escapeHtml(item.location)}</td>
-            <td style="text-align: left;">${escapeHtml((item.notice || '').substring(0, 80))}...</td>
+            <td style="text-align: center;"><button class="btn-sm" onclick="openLocationViewModal(${item.id})">查看</button></td>
             <td style="text-align: center;">${formatDate(item.publishTime)}</td>
             <td style="text-align: center;">${item.publisher || '-'}</td>
             <td style="text-align: center;"><span class="${statusClass}">${statusText}</span></td>
@@ -617,6 +616,29 @@ async function deleteLocationNotice(id) {
 
 function searchAnnouncements() {
     renderAnnouncementHistory(document.getElementById('searchAnnouncement')?.value || '');
+}
+
+function openNoticeViewModal(id) {
+    const item = (window.announcements || []).find(a => a.id == id);
+    if (!item) return;
+    document.getElementById('noticeViewTitle').textContent = item.title;
+    document.getElementById('noticeViewContent').textContent = item.content || '（无内容）';
+    document.getElementById('noticeViewMeta').textContent =
+        `发布人：${item.publisher || '-'}　发布时间：${formatDate(item.publishTime)}`;
+    Modal.open('noticeViewModal');
+}
+
+function openLocationViewModal(id) {
+    const item = (window.locationNotices || []).find(n => n.id == id);
+    if (!item) return;
+    document.getElementById('noticeViewTitle').textContent = '领取地点 & 注意事项';
+    const content = `📍 领取地点：${item.location || '-'}
+
+📋 注意事项：${item.notice || '（无）'}`;
+    document.getElementById('noticeViewContent').textContent = content;
+    document.getElementById('noticeViewMeta').textContent =
+        `发布人：${item.publisher || '-'}　发布时间：${formatDate(item.publishTime)}`;
+    Modal.open('noticeViewModal');
 }
 
 function searchLocationNotices() {

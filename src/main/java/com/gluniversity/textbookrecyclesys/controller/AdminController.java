@@ -426,9 +426,14 @@ public class AdminController {
     @PostMapping("/announcements")
     public ResponseEntity<ApiResponse<Announcement>> publishAnnouncement(
             @RequestBody Map<String, String> request,
-            @RequestHeader(value = "X-Operator-Name", required = false) String operatorName) {
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         try {
-            String operator = (operatorName != null && !operatorName.isEmpty()) ? operatorName : "管理员";
+            String operator = "管理员";
+            if (userId != null) {
+                operator = userService.findById(userId)
+                        .map(User::getName)
+                        .orElse("管理员");
+            }
             Announcement announcement = announcementService.publishAnnouncement(
                     request.get("title"),
                     request.get("content"),
