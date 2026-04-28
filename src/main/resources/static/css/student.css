@@ -1727,3 +1727,33 @@
     flex-shrink: 0;
     margin-left: 8px;
 }
+
+/* ===== ����������л���ť ===== */
+.modal-field.pwd-field {
+    position: relative;
+}
+
+.modal-field.pwd-field input {
+    padding-right: 44px;
+}
+
+.pwd-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7c93;
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: color 0.2s;
+}
+
+.pwd-toggle:hover {
+    color: #1e6d8f;
+}
+

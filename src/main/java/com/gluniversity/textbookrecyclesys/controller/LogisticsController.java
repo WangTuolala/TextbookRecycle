@@ -94,6 +94,38 @@ public class LogisticsController {
     }
 
     // ===== 个人信息 =====
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<User>> getProfile(@RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        if (userId != null) {
+            return userService.findById(userId)
+                    .map(u -> ResponseEntity.ok(ApiResponse.success(u)))
+                    .orElse(ResponseEntity.ok(ApiResponse.success(null)));
+        }
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<ApiResponse<User>> updateProfile(
+            @RequestBody Map<String, String> request,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("用户未登录"));
+            }
+            User updatedUser = new User();
+            updatedUser.setName(request.get("name"));
+            updatedUser.setPhone(request.get("phone"));
+            updatedUser.setCollege(request.get("dept"));
+            updatedUser.setMajor(request.get("workplace"));
+            updatedUser.setYear(request.get("year"));
+            User user = userService.updateProfile(userId, updatedUser);
+            return ResponseEntity.ok(ApiResponse.success(user));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // ===== 个人信息 =====
     @PutMapping("/password")
     public ResponseEntity<ApiResponse<String>> changePassword(
             @RequestBody Map<String, String> request,

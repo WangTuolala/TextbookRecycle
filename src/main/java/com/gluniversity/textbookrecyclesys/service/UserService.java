@@ -48,12 +48,12 @@ public class UserService {
     public User updateProfile(Long userId, User updatedUser) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
-        user.setName(updatedUser.getName());
-        user.setPhone(updatedUser.getPhone());
-        user.setCollege(updatedUser.getCollege());
-        user.setMajor(updatedUser.getMajor());
-        user.setClassName(updatedUser.getClassName());
-        user.setYear(updatedUser.getYear());
+        if (updatedUser.getName() != null && !updatedUser.getName().isBlank()) user.setName(updatedUser.getName());
+        if (updatedUser.getPhone() != null) user.setPhone(updatedUser.getPhone());
+        if (updatedUser.getCollege() != null) user.setCollege(updatedUser.getCollege());
+        if (updatedUser.getMajor() != null) user.setMajor(updatedUser.getMajor());
+        if (updatedUser.getClassName() != null) user.setClassName(updatedUser.getClassName());
+        if (updatedUser.getYear() != null) user.setYear(updatedUser.getYear());
         return userRepository.save(user);
     }
 

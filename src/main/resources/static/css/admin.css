@@ -1810,3 +1810,35 @@
 #stockOutModal .modal-field {
     position: relative;
 }
+
+/* ===== √‹¬Î ‰»ÎøÚ«–ªª∞¥≈• ===== */
+.modal-field.pwd-field {
+    position: relative;
+}
+
+.modal-field.pwd-field input {
+    padding-right: 44px;
+}
+
+.pwd-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7c93;
+    padding: 4px 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s;
+}
+
+.pwd-toggle:hover {
+    color: #1e6d8f;
+    background: rgba(30, 109, 143, 0.08);
+}
+

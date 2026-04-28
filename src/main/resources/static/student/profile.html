@@ -106,14 +106,17 @@
     <div class="modal-content">
         <span class="close-btn">&times;</span>
         <h3>修改密码</h3>
-        <div class="modal-field">
+        <div class="modal-field pwd-field">
             <input type="password" id="oldPassword" placeholder="当前密码">
+            <button type="button" class="pwd-toggle" data-for="oldPassword">⊙</button>
         </div>
-        <div class="modal-field">
+        <div class="modal-field pwd-field">
             <input type="password" id="newPassword" placeholder="新密码">
+            <button type="button" class="pwd-toggle" data-for="newPassword">⊙</button>
         </div>
-        <div class="modal-field">
+        <div class="modal-field pwd-field">
             <input type="password" id="confirmPassword" placeholder="确认新密码">
+            <button type="button" class="pwd-toggle" data-for="confirmPassword">⊙</button>
         </div>
         <div class="modal-actions">
             <button class="btn-primary" onclick="changePassword()">修改</button>
@@ -124,5 +127,23 @@
 
 <script src="/js/common.js"></script>
 <script src="/js/student.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.pwd-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var inputId = btn.getAttribute('data-for');
+            var input = document.getElementById(inputId);
+            if (!input) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '×';
+            } else {
+                input.type = 'password';
+                btn.textContent = '⊙';
+            }
+        });
+    });
+});
+</script>
 </body>
 </html>

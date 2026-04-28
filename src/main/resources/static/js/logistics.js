@@ -660,6 +660,25 @@ function resetAnnouncementForm() {
 }
 
 // ==================== 个人信息页面功能 ====================
+function togglePwdVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>`;
+    } else {
+        input.type = 'password';
+        btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+        </svg>`;
+    }
+}
+
 function initProfilePage() {
     const infoModal = document.getElementById('infoModal');
     const pwdModal = document.getElementById('pwdModal');
@@ -671,40 +690,54 @@ function initProfilePage() {
         const saveBtn = pwdModal.querySelector('.btn-primary');
         if (saveBtn) saveBtn.onclick = function() { changePassword(); };
     }
-    // 恢复保存的数据
+    // 从后端加载个人信息
     loadLogisticsProfile();
+
 }
 
-function saveLogisticsProfile() {
+async function saveLogisticsProfile() {
     const name = document.getElementById('logiProfileName')?.value || '';
     const dept = document.getElementById('logiProfileDept')?.value || '';
-const year = document.getElementById('logiProfileYear')?.value || '';
+    const year = document.getElementById('logiProfileYear')?.value || '';
     const phone = document.getElementById('logiProfilePhone')?.value || '';
     const workplace = document.getElementById('logiProfileWorkplace')?.value || '';
-    
-    sessionStorage.setItem('logisticsProfile', JSON.stringify({ name, dept, year, phone, workplace }));
-    
-    // 同时更新 currentUser，这样导航栏也会显示新名字
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-        currentUser.name = name;
-        sessionStorage.setItem('current_user', JSON.stringify(currentUser));
+
+    if (!name.trim()) {
+        alert('姓名不能为空');
+        return;
     }
-    
-    const rows = document.querySelectorAll('.profile-info-grid .info-value');
-    if (rows.length >= 6) {
-        rows[1].innerText = name || '-';
-        rows[2].innerText = dept || '-';
-        rows[3].innerText = year ? year + '年' : '-';
-        rows[4].innerText = phone || '-';
-        rows[5].innerText = workplace || '-';
+
+    try {
+        const result = await logisticsApiCall('/profile', 'PUT', { name, phone });
+        if (result.success) {
+            // 同步更新 sessionStorage 和 currentUser
+            sessionStorage.setItem('logisticsProfile', JSON.stringify({ name, dept, year, phone, workplace }));
+            const currentUser = getCurrentUser();
+            if (currentUser) {
+                currentUser.name = name;
+                sessionStorage.setItem('current_user', JSON.stringify(currentUser));
+            }
+            // 更新当前页面显示
+            const rows = document.querySelectorAll('.profile-info-grid .info-value');
+            if (rows.length >= 6) {
+                rows[1].innerText = name || '-';
+                rows[2].innerText = dept || '-';
+                rows[3].innerText = year ? year + '年' : '-';
+                rows[4].innerText = phone || '-';
+                rows[5].innerText = workplace || '-';
+            }
+            const navUserName = document.getElementById('logisticsUserName');
+            if (navUserName) navUserName.innerText = '👤 ' + name;
+            alert('个人信息修改成功');
+            Modal.close('infoModal');
+        } else {
+            alert(result.message || '修改失败');
+        }
+    } catch (error) {
+        alert(error.message || '修改失败，请重试');
     }
-    
-    const navUserName = document.querySelector('.nav-user-info');
-    if (navUserName) navUserName.innerHTML = '👤 ' + name + ' <span class="points">后勤</span>';
-    
-    Modal.close('infoModal');
 }
+
 
 async function changePassword() {
     const oldPwd = document.getElementById('oldPassword')?.value;
@@ -740,11 +773,41 @@ async function changePassword() {
 }
 
 function updateNavUserName(name) {
-    const navUserName = document.querySelector('.nav-user-info');
-    if (navUserName) navUserName.innerHTML = '👤 ' + name + ' <span class="points">后勤</span>';
+    const navUserName = document.getElementById('logisticsUserName');
+    if (navUserName) navUserName.innerText = '👤 ' + name;
 }
 
-function loadLogisticsProfile() {
+async function loadLogisticsProfile() {
+    try {
+        const result = await logisticsApiCall('/profile', 'GET');
+        const user = result.data;
+        if (user) {
+            const rows = document.querySelectorAll('.profile-info-grid .info-value');
+            if (rows.length >= 6) {
+                rows[1].innerText = user.name || '-';
+                rows[2].innerText = user.college || '-';
+                rows[3].innerText = user.year ? user.year + '年' : '-';
+                rows[4].innerText = user.phone || '-';
+                rows[5].innerText = user.major || '-';
+            }
+            if (document.getElementById('logiProfileName')) document.getElementById('logiProfileName').value = user.name || '';
+            if (document.getElementById('logiProfileDept')) document.getElementById('logiProfileDept').value = user.college || '';
+            if (document.getElementById('logiProfileYear')) document.getElementById('logiProfileYear').value = user.year || '';
+            if (document.getElementById('logiProfilePhone')) document.getElementById('logiProfilePhone').value = user.phone || '';
+            if (document.getElementById('logiProfileWorkplace')) document.getElementById('logiProfileWorkplace').value = user.major || '';
+            updateNavUserName(user.name || '后勤人员');
+            // 更新 currentUser
+            const currentUser = getCurrentUser();
+            if (currentUser) {
+                currentUser.name = user.name;
+                sessionStorage.setItem('current_user', JSON.stringify(currentUser));
+            }
+            return;
+        }
+    } catch (e) {
+        console.error('从后端加载后勤信息失败，尝试从本地缓存恢复', e);
+    }
+    // fallback: 从 sessionStorage 恢复
     const saved = sessionStorage.getItem('logisticsProfile');
     if (saved) {
         try {
@@ -762,7 +825,7 @@ function loadLogisticsProfile() {
             if (document.getElementById('logiProfileYear')) document.getElementById('logiProfileYear').value = p.year || '';
             if (document.getElementById('logiProfilePhone')) document.getElementById('logiProfilePhone').value = p.phone || '';
             if (document.getElementById('logiProfileWorkplace')) document.getElementById('logiProfileWorkplace').value = p.workplace || '';
-            updateNavUserName(p.name || '王师傅');
+            updateNavUserName(p.name || '后勤人员');
         } catch (e) { console.error('恢复后勤个人信息失败:', e); }
     }
 }
