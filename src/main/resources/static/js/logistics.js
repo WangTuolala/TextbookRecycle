@@ -43,7 +43,7 @@ function renderPickupTable(exchanges) {
 
     tbody.innerHTML = exchanges.map(ex => {
         const icon = defaultIcons[ex.prizeName] || '🎁';
-        const imgSrc = ex.imageData || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Crect width='50' height='50' fill='%23e1eff8' rx='10'/%3E%3Ctext x='25' y='33' text-anchor='middle' fill='%231e6d8f' font-size='24'%3E${encodeURIComponent(icon)}%3C/text%3E%3C/svg%3E`;
+        const imgSrc = ex.prizeImageData || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Crect width='50' height='50' fill='%23e1eff8' rx='10'/%3E%3Ctext x='25' y='33' text-anchor='middle' fill='%231e6d8f' font-size='24'%3E${encodeURIComponent(icon)}%3C/text%3E%3C/svg%3E`;
         const statusBadge = ex.status === 'COMPLETED'
             ? '<span class="status-badge completed">已领取</span>'
             : '<span class="status-badge pending">待领取</span>';

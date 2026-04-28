@@ -1,5 +1,6 @@
 package com.gluniversity.textbookrecyclesys.service;
 
+import com.gluniversity.textbookrecyclesys.dto.PrizeExchangeDTO;
 import com.gluniversity.textbookrecyclesys.entity.*;
 import com.gluniversity.textbookrecyclesys.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -92,16 +93,35 @@ public class PrizeService {
         return exchangeRepository.findAll();
     }
 
-    public List<PrizeExchange> getAllPendingExchanges() {
+    public List<PrizeExchangeDTO> getAllPendingExchanges() {
         return exchangeRepository.findAll().stream()
                 .filter(e -> "PENDING".equals(e.getStatus()))
+                .map(this::toDTO)
                 .toList();
     }
 
-    public List<PrizeExchange> getAllCompletedExchanges() {
+    public List<PrizeExchangeDTO> getAllCompletedExchanges() {
         return exchangeRepository.findAll().stream()
                 .filter(e -> "COMPLETED".equals(e.getStatus()))
+                .map(this::toDTO)
                 .toList();
+    }
+
+    private PrizeExchangeDTO toDTO(PrizeExchange e) {
+        PrizeExchangeDTO dto = new PrizeExchangeDTO();
+        dto.setId(e.getId());
+        dto.setStudentId(e.getStudentId());
+        dto.setStudentName(e.getStudentName());
+        dto.setPrizeId(e.getPrizeId());
+        dto.setPrizeName(e.getPrizeName());
+        dto.setPoints(e.getPoints());
+        dto.setQuantity(e.getQuantity());
+        dto.setStatus(e.getStatus());
+        dto.setExchangeTime(e.getExchangeTime());
+        dto.setPickupTime(e.getPickupTime());
+        prizeRepository.findById(e.getPrizeId())
+                .ifPresent(p -> dto.setPrizeImageData(p.getImageData()));
+        return dto;
     }
 
     @Transactional

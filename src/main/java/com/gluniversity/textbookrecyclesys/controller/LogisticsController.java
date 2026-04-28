@@ -1,6 +1,7 @@
 package com.gluniversity.textbookrecyclesys.controller;
 
 import com.gluniversity.textbookrecyclesys.dto.*;
+import com.gluniversity.textbookrecyclesys.dto.PrizeExchangeDTO;
 import com.gluniversity.textbookrecyclesys.entity.*;
 import com.gluniversity.textbookrecyclesys.service.*;
 import lombok.RequiredArgsConstructor;
@@ -67,12 +68,12 @@ public class LogisticsController {
 
     // ===== 领取管理 =====
     @GetMapping("/exchanges/pending")
-    public ResponseEntity<ApiResponse<List<PrizeExchange>>> getPendingExchanges() {
+    public ResponseEntity<ApiResponse<List<PrizeExchangeDTO>>> getPendingExchanges() {
         return ResponseEntity.ok(ApiResponse.success(prizeService.getAllPendingExchanges()));
     }
 
     @GetMapping("/exchanges/completed")
-    public ResponseEntity<ApiResponse<List<PrizeExchange>>> getCompletedExchanges() {
+    public ResponseEntity<ApiResponse<List<PrizeExchangeDTO>>> getCompletedExchanges() {
         return ResponseEntity.ok(ApiResponse.success(prizeService.getAllCompletedExchanges()));
     }
 
