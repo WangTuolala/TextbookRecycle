@@ -178,7 +178,7 @@ public class RecycleService {
 
         int totalPoints = evaluation.getPoints() * (evaluation.getQuantity() != null ? evaluation.getQuantity() : 1);
         userService.addPoints(evaluation.getStudentId(), totalPoints,
-                "REYCLE", evaluation.getBookName() + " x" + evaluation.getQuantity(), "BOOK");
+                "RECYCLE", evaluation.getBookName() + " x" + evaluation.getQuantity(), "BOOK");
         
         evaluation.setStatus("SYNCED");
         evaluationRepository.save(evaluation);
