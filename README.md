@@ -258,6 +258,7 @@ java -jar target/textbook-recycle-system-0.0.1-SNAPSHOT.jar
 | `quantity` | int | | 本数 |
 | `remark` | text | | 备注 |
 | `cover_image` | longtext | | 封面图 |
+| `author` | varchar(500) | | 作者 |
 | `status` | varchar(50) | | `PENDING` 待审核 / `APPROVED` 已通过 / `REJECTED` 已拒绝 / `COMPLETED` 已完成 |
 | `submit_time` | timestamp | | 提交时间 |
 
@@ -287,6 +288,8 @@ java -jar target/textbook-recycle-system-0.0.1-SNAPSHOT.jar
 | `evaluate_time` | timestamp | | 评估时间 |
 
 > **状态流转**：`PENDING` →（通过）`APPROVED` →（同步积分）`SYNCED`；`PENDING` →（拒绝）`REJECTED`
+>
+> **注意**：评估页面已移除上架按钮，上架操作需在书籍管理页面完成。评估状态只显示 PENDING / APPROVED / SYNCED / REJECTED，LISTED / DELISTED 状态不在此处流转。
 
 ---
 
@@ -528,7 +531,10 @@ java -jar target/textbook-recycle-system-0.0.1-SNAPSHOT.jar
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/logistics/profile` | 个人信息 |
+| PUT | `/logistics/profile` | 更新个人信息 |
 | GET | `/logistics/exchanges/pending` | 待领取列表 |
+| GET | `/logistics/exchanges/completed` | 已领取列表 |
 | POST | `/logistics/exchanges/{id}/pickup` | 确认领取 |
 | GET | `/logistics/prizes` | 奖品列表 |
 | POST | `/logistics/prizes` | 新增奖品 |
