@@ -3,87 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>后勤个人信息</title>
+    <title>个人信息 · 后勤 | GLU</title>
+    <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/logistics.css">
-    <link rel="stylesheet" href="/css/modal.css">
 </head>
-<body class="logistics-page">
+<body>
 
-<div class="logistics-header">
-    <h2>后勤个人信息</h2>
-    <div class="header-actions">
-        <button class="btn-secondary" onclick="logout()">退出登录</button>
+<nav class="logi-nav">
+    <div class="nav-brand">📦 后勤联动 · GL大学</div>
+    <div class="nav-links">
+        <a href="/logistics/index.html">领取管理</a>
+        <a href="/logistics/profile.html" class="active">个人信息</a>
+        <a href="/logistics/prize-mgmt.html">奖品管理</a>
+        <a href="/logistics/notice.html">公告通知</a>
     </div>
-</div>
+    <div class="nav-user">
+        <span class="nav-user-info" id="logisticsUserName">
+            👤 <span id="navUserName">加载中...</span>
+        </span>
+        <button class="logout-btn" onclick="logout()">退出</button>
+    </div>
+</nav>
 
-<div class="nav-user-info">
-    <span id="logisticsUserName">加载中...</span>
-</div>
-
-<div class="profile-container">
+<main class="logistics-profile-main">
     <div class="profile-card">
-        <div class="profile-card-left">
-            <div class="profile-info-grid">
-                <div class="profile-info-row">
-                    <span class="profile-info-label">姓名</span>
-                    <span class="profile-info-value">-</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-info-label">工号</span>
-                    <span class="profile-info-value">-</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-info-label">部门</span>
-                    <span class="profile-info-value">-</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-info-label">入职年份</span>
-                    <span class="profile-info-value">-</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-info-label">联系电话</span>
-                    <span class="profile-info-value">-</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-info-label">工作地点</span>
-                    <span class="profile-info-value">-</span>
-                </div>
+        <h2>后勤个人信息</h2>
+        <div class="profile-info-grid">
+            <div class="info-row">
+                <span class="info-label">姓名：</span>
+                <span class="info-value">-</span>
             </div>
-            <div class="profile-actions">
-                <button class="btn-primary" data-modal="infoModal">修改信息</button>
-                <button class="btn-secondary" data-modal="pwdModal">修改密码</button>
+            <div class="info-row">
+                <span class="info-label">工号：</span>
+                <span class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">部门：</span>
+                <span class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">入职年份：</span>
+                <span class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">联系电话：</span>
+                <span class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">工作地点：</span>
+                <span class="info-value">-</span>
             </div>
         </div>
+        <div class="profile-actions">
+            <button class="btn-primary" data-modal="infoModal">修改信息</button>
+            <button class="btn-secondary" data-modal="pwdModal">修改密码</button>
+        </div>
     </div>
-</div>
+</main>
 
 <!-- 修改个人信息弹窗 -->
 <div id="infoModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content modal-lg">
         <span class="close-btn">&times;</span>
         <h3>修改个人信息</h3>
         <div class="modal-field">
-            <label>姓名</label>
-            <input type="text" id="logiProfileName" placeholder="请输入姓名">
+            <input type="text" id="logiProfileName" placeholder="姓名">
         </div>
         <div class="modal-field">
-            <label>部门</label>
-            <input type="text" id="logiProfileDept" placeholder="请输入部门">
+            <input type="text" id="logiProfileDept" placeholder="部门">
         </div>
         <div class="modal-field">
-            <label>入职年份</label>
-            <input type="text" id="logiProfileYear" placeholder="请输入年份，如2020">
+            <input type="text" id="logiProfileYear" placeholder="入职年份">
         </div>
         <div class="modal-field">
-            <label>联系电话</label>
-            <input type="text" id="logiProfilePhone" placeholder="请输入联系电话">
+            <input type="tel" id="logiProfilePhone" placeholder="联系电话">
         </div>
         <div class="modal-field">
-            <label>工作地点</label>
-            <input type="text" id="logiProfileWorkplace" placeholder="请输入工作地点">
+            <input type="text" id="logiProfileWorkplace" placeholder="工作地点">
         </div>
         <div class="modal-actions">
-            <button class="btn-primary">保存</button>
+            <button class="btn-primary" onclick="saveLogisticsProfile()">保存</button>
             <button class="btn-secondary" onclick="Modal.close('infoModal')">取消</button>
         </div>
     </div>
@@ -91,21 +90,18 @@
 
 <!-- 修改密码弹窗 -->
 <div id="pwdModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content modal-lg">
         <span class="close-btn">&times;</span>
         <h3>修改密码</h3>
         <div class="modal-field pwd-field">
-            <label>当前密码</label>
             <input type="password" id="oldPassword" placeholder="当前密码">
             <button type="button" class="pwd-toggle" data-for="oldPassword">⊙</button>
         </div>
         <div class="modal-field pwd-field">
-            <label>新密码</label>
             <input type="password" id="newPassword" placeholder="新密码">
             <button type="button" class="pwd-toggle" data-for="newPassword">⊙</button>
         </div>
         <div class="modal-field pwd-field">
-            <label>确认新密码</label>
             <input type="password" id="confirmPassword" placeholder="确认新密码">
             <button type="button" class="pwd-toggle" data-for="confirmPassword">⊙</button>
         </div>
